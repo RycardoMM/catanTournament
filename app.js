@@ -50,6 +50,23 @@ function fbDetenerListener() {
   if (_fbListenerRef) { _fbListenerRef.off('value'); _fbListenerRef = null; }
 }
 
+function fbActualizarTorneo(t) {
+  if (!_db) return;
+  _db.ref(`catan_tournaments/${t.id}`).set({
+    torneoNombre: t.nombre,
+    tipo: t.tipo || 'oficial',
+    numRondas: t.numRondas || null,
+    desempate: t.desempate || [],
+    rondas: t.rondas.map(r => ({
+      numero: r.numero,
+      sistema: r.sistema,
+      mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre })))
+    }))
+  });
+}
+
+let _guestTorneoRef = null;
+
 function _aplicarResultadosFirebase(torneoId, data) {
   const t = state.torneos.find(x => x.id === torneoId);
   if (!t || t !== state.torneoActivo) return;
@@ -1036,6 +1053,7 @@ document.getElementById('btnGenerarRonda').addEventListener('click', () => {
   guardarEstado();
   renderRondas();
   actualizarBtnRonda();
+  fbActualizarTorneo(t);
 });
 
 function rondaActualCompleta(t) {
@@ -2008,6 +2026,7 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   document.getElementById('shareUrlInput').value = url;
   document.getElementById('shareCopiedMsg').classList.add('hidden');
   document.getElementById('modalShareRonda').classList.remove('hidden');
+  fbActualizarTorneo(t); // subir estructura inicial a Firebase
 });
 
 
@@ -2158,6 +2177,40 @@ function renderPlayerView(shareData) {
       if (tabEl) tabEl.classList.remove('hidden');
     });
   });
+
+  // Listener Firebase: nueva ronda generada por el organizador
+  if (_guestTorneoRef) { _guestTorneoRef.off('value'); _guestTorneoRef = null; }
+  if (FIREBASE_ENABLED && _db) {
+    _guestTorneoRef = _db.ref(`catan_tournaments/${shareData.torneoId}`);
+    _guestTorneoRef.on('value', snap => {
+      const fbT = snap.val();
+      if (!fbT || !fbT.rondas || fbT.rondas.length <= shareData.rondas.length) return;
+      // Nueva(s) ronda(s) disponibles — fusionar resultados existentes
+      const mergedRondas = fbT.rondas.map(r => {
+        const ex = shareData.rondas.find(e => e.numero === r.numero);
+        return { ...r, resultadosMesas: ex ? (ex.resultadosMesas || []) : [] };
+      });
+      const nuevaData = {
+        ...shareData,
+        rondas: mergedRondas,
+        numRondas: fbT.numRondas || shareData.numRondas
+      };
+      // Mostrar banner no intrusivo
+      let banner = document.getElementById('pv-new-round-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'pv-new-round-banner';
+        banner.className = 'pv-new-round-banner';
+        contenedor.prepend(banner);
+      }
+      banner.innerHTML = `<span>📣 Ronda ${fbT.rondas.length} disponible</span>
+        <button class="btn-sm btn-primary btn-pv-reload">Ver ahora</button>`;
+      banner.querySelector('.btn-pv-reload').addEventListener('click', () => {
+        _guestTorneoRef.off('value'); _guestTorneoRef = null;
+        renderPlayerView(nuevaData);
+      });
+    });
+  }
 
   // Historial acordeón
   contenedor.querySelectorAll('.pv-hist-toggle').forEach(header => {

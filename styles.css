@@ -1398,6 +1398,27 @@ main {
 }
 .import-code-input:focus { border-color: var(--catan-gold); }
 
+/* BANNER NUEVA RONDA (vista invitado) */
+.pv-new-round-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #2a4a2a;
+  border: 1px solid #4caf50;
+  border-radius: var(--radius);
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #a5d6a7;
+  font-weight: 600;
+  animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* DESEMPATE INLINE (vista invitado) */
 .pv-desempate { padding: 0.5rem 0 0.25rem; }
 .pv-desempate-title { font-size: 0.9rem; font-weight: 700; color: var(--catan-gold); margin-bottom: 0.4rem; }
