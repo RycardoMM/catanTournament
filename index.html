@@ -90,7 +90,10 @@
             <div class="panel">
               <div class="panel-header">
                 <h3>Emparejamiento</h3>
-                <button id="btnGenerarRonda" class="btn-primary btn-sm">Generar Ronda 1</button>
+                <div class="panel-actions">
+                  <button id="btnIniciarTorneo" class="btn-primary btn-sm">▶ Iniciar torneo</button>
+                  <button id="btnGenerarRonda" class="btn-primary btn-sm">Generar Ronda 1</button>
+                </div>
               </div>
               <div class="filtro-mesas-wrap">
                 <input type="text" id="filtroMesas" class="filtro-mesas-input" placeholder="🔍 Buscar jugador en mesas..." autocomplete="off" />
@@ -308,6 +311,6 @@
 <!-- Firebase SDK (real-time sync) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
