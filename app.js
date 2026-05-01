@@ -493,8 +493,6 @@ document.getElementById('formTorneo').addEventListener('submit', (e) => {
 
   const metosDesempate = [...desempateList.querySelectorAll('.desempate-item')].map(i => i.dataset.value);
 
-  const pinArbitro = (document.getElementById('pinArbitro').value || '').trim();
-
   const torneo = {
     id: Date.now(),
     nombre,
@@ -504,7 +502,6 @@ document.getElementById('formTorneo').addEventListener('submit', (e) => {
     formato,
     tipo,
     metosDesempate,
-    pinArbitro: pinArbitro || null,
     fechaCreacion: new Date().toLocaleDateString('es-ES'),
     estado: 'activo',
     jugadores: [],
@@ -1614,11 +1611,11 @@ function importarCodigo(rawCode) {
 
 // ─── HTML torneo autocontenido ────────────────────────────────────────────────
 function generarHTMLTorneo(t) {
+  const esAmistoso = t.tipo === 'amistoso';
   const embed = {
     torneoId: t.id,
     torneoNombre: t.nombre,
     tipo: t.tipo || 'oficial',
-    pinArbitro: t.pinArbitro || null,
     numRondas: t.numRondas || null,
     jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
     rondas: t.rondas.map(r => ({
@@ -1638,27 +1635,21 @@ function generarHTMLTorneo(t) {
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1a0f0a;color:#f0e0c0;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh}
-.sc{display:none;padding:1.5rem;max-width:700px;margin:0 auto}.sc.on{display:block}
-.sh{text-align:center;margin-bottom:1.75rem;padding-top:.5rem}
+.wrap{max-width:700px;margin:0 auto;padding:1.5rem}
+.sh{text-align:center;margin-bottom:1.5rem;padding-top:.5rem}
 .st{font-size:1.7rem;font-weight:800;color:#d4a017;margin-bottom:.4rem}
 .sb{display:inline-block;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.3);color:#d4a017;border-radius:20px;padding:.2rem .9rem;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:.4rem}
-.role-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:1rem;margin-top:1rem}
-.rc{background:#2e1a10;border:2px solid #5a3520;border-radius:12px;padding:1.4rem 1rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
-.rc:hover{border-color:#d4a017;background:#3d2415}
-.ri{font-size:2rem;margin-bottom:.5rem}.rn{font-size:.95rem;font-weight:700;margin-bottom:.25rem}.rd{font-size:.75rem;color:#a08060;line-height:1.4}
-.bb{background:none;border:1px solid #5a3520;color:#a08060;padding:.3rem .75rem;border-radius:6px;cursor:pointer;font-size:.8rem;margin-bottom:1.1rem;transition:border-color .2s,color .2s}
-.bb:hover{border-color:#d4a017;color:#d4a017}
-.tabs{display:flex;gap:.2rem;border-bottom:1px solid #5a3520;margin-bottom:1rem}
-.tb{background:none;border:none;padding:.5rem .85rem;font-size:.83rem;color:#a08060;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.tabs{display:flex;gap:.2rem;border-bottom:2px solid #5a3520;margin-bottom:1.25rem}
+.tb{background:none;border:none;padding:.55rem 1rem;font-size:.85rem;color:#a08060;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-weight:600;transition:color .15s,border-color .15s}
 .tb.on{color:#d4a017;border-bottom-color:#d4a017}
 .tp{display:none}.tp.on{display:block}
-table{width:100%;border-collapse:collapse;font-size:.83rem}
-th{background:#2c1810;color:#d4a017;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;padding:.38rem .5rem;text-align:center;border:1px solid #5a3520}
-th:first-child{text-align:left}
-td{padding:.32rem .48rem;border:1px solid #3d2415;text-align:center;background:#2e1a10}
-td:first-child{text-align:left}
-tr:nth-child(1) td{background:rgba(255,215,0,.05)}
-.g1{color:#FFD700}.g2{color:#C0C0C0}.g3{color:#CD7F32}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{background:#2c1810;color:#a08060;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;padding:.45rem .6rem;text-align:left;border-bottom:1px solid #5a3520}
+th:not(:first-child){text-align:center}
+td{padding:.4rem .6rem;border-bottom:1px solid rgba(90,53,32,.4);text-align:left;vertical-align:middle}
+td:not(:first-child){text-align:center}
+tr:last-child td{border-bottom:none}
+.g1{color:#FFD700;font-weight:800}.g2{color:#C0C0C0;font-weight:800}.g3{color:#CD7F32;font-weight:800}
 .gpts{color:#d4a017;font-weight:700}
 .rb{background:#2e1a10;border:1px solid #5a3520;border-radius:10px;margin-bottom:.9rem;overflow:hidden}
 .rh{background:#2c1810;border-bottom:1px solid #5a3520;padding:.55rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#d4a017}
@@ -1671,18 +1662,14 @@ tr:nth-child(1) td{background:rgba(255,215,0,.05)}
 .rpv{font-size:.73rem;color:#a08060;flex-shrink:0}
 .rpt{font-size:.73rem;color:#d4a017;font-weight:700;flex-shrink:0}
 .noR{font-size:.78rem;color:#a08060;font-style:italic;padding:.25rem 0}
-.fg{margin-bottom:.9rem}
-.fg label{display:block;font-size:.8rem;color:#a08060;margin-bottom:.3rem;font-weight:600}
-.fi,.fs{width:100%;background:#2e1a10;border:1px solid #5a3520;border-radius:6px;color:#f0e0c0;font-size:.9rem;padding:.42rem .65rem;outline:none;transition:border-color .2s}
-.fi:focus,.fs:focus{border-color:#d4a017}
 .mc2{background:#2e1a10;border:1px solid #5a3520;border-radius:10px;overflow:hidden;margin-bottom:.9rem}
 .mc2h{background:#2c1810;border-bottom:1px solid #5a3520;padding:.52rem 1rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#a08060}
 .jl{padding:.65rem 1rem;display:flex;flex-direction:column;gap:.42rem}
 .jr{display:flex;align-items:center;gap:.7rem}
-.jn{flex:1;font-size:.88rem}.jn.yo{color:#d4a017;font-weight:700}
+.jn{flex:1;font-size:.88rem}
 .pi{width:66px;background:#3d2415;border:1px solid #5a3520;border-radius:6px;color:#f0e0c0;font-size:.98rem;font-weight:700;text-align:center;padding:.28rem .38rem;outline:none;transition:border-color .2s}
 .pi:focus{border-color:#d4a017}.pi:disabled{opacity:.4;cursor:default}
-.bp{background:#c0392b;color:#fff;border:none;padding:.6rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;width:100%;margin:.1rem 0 .75rem;transition:background .15s}
+.bp{background:#c0392b;color:#fff;border:none;padding:.6rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;width:100%;margin:.25rem 0 .5rem;transition:background .15s}
 .bp:hover{background:#a93226}.bp:disabled{opacity:.45;cursor:default}
 .cb{background:rgba(39,174,96,.07);border:1px solid rgba(39,174,96,.2);border-radius:8px;padding:.75rem .9rem;margin-top:.5rem;display:none}
 .cl{font-size:.78rem;color:#5dca8a;font-weight:600;margin-bottom:.4rem}
@@ -1690,58 +1677,33 @@ tr:nth-child(1) td{background:rgba(255,215,0,.05)}
 .ct{flex:1;background:#3d2415;border:1px solid #5a3520;border-radius:6px;color:#a08060;font-size:.68rem;padding:.32rem .45rem;resize:none;outline:none;font-family:monospace;line-height:1.4}
 .bcp{background:rgba(212,160,23,.15);border:1px solid rgba(212,160,23,.35);color:#d4a017;border-radius:6px;padding:.28rem .65rem;font-size:.78rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s}
 .bcp:hover{background:rgba(212,160,23,.3)}
-.pe{color:#e74c3c;font-size:.8rem;margin-top:.35rem;display:none}
-.sec{font-size:.85rem;font-weight:700;color:#d4a017;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.65rem}
-.pf{max-width:300px;margin:1.25rem auto 0}
 .ok{color:#5dca8a;font-size:.83rem;padding:.4rem .8rem .75rem 1rem}
+.sec-ronda{font-size:.82rem;font-weight:700;color:#d4a017;text-transform:uppercase;letter-spacing:.5px;margin:1.1rem 0 .6rem}
 </style>
 </head>
 <body>
-<div id="roles" class="sc on">
-  <div class="sh"><div class="st">&#127942; ${escapeHtml(t.nombre)}</div><div class="sb" id="badge-estado"></div></div>
-  <p style="text-align:center;color:#a08060;font-size:.85rem;margin-bottom:.25rem">Elige c&#243;mo quieres acceder</p>
-  <div class="role-grid" id="role-grid"></div>
-</div>
-<div id="espectador" class="sc">
-  <button class="bb" onclick="goRoles()">&#8592; Cambiar rol</button>
+<div class="wrap">
+  <div class="sh">
+    <div class="st">&#127942; ${escapeHtml(t.nombre)}</div>
+    <div class="sb" id="badge-estado"></div>
+  </div>
   <div class="tabs">
     <button class="tb on" onclick="tab('cls',this)">&#127942; Clasificaci&#243;n</button>
-    <button class="tb" onclick="tab('rondas',this)">&#128220; Rondas</button>
+    <button class="tb" onclick="tab('mesas',this)">&#127919; Mesas y resultados</button>
   </div>
   <div id="cls" class="tp on"></div>
-  <div id="rondas" class="tp"></div>
-</div>
-<div id="jugador" class="sc">
-  <button class="bb" onclick="goRoles()">&#8592; Cambiar rol</button>
-  <div class="sec">&#128100; Soy jugador</div>
-  <div class="fg"><label>&#191;Cu&#225;l es tu nombre?</label>
-    <select class="fs" id="sj" onchange="selJugador()"><option value="">&#8212; Selecciona tu nombre &#8212;</option></select>
-  </div>
-  <div id="jmesa"></div>
-</div>
-<div id="arbitro" class="sc">
-  <button class="bb" onclick="goRoles()">&#8592; Cambiar rol</button>
-  <div class="sec">&#9878; Acceso &#225;rbitro</div>
-  <div class="pf">
-    <div class="fg"><label>PIN de &#225;rbitro</label>
-      <input type="password" class="fi" id="pinInp" placeholder="Introduce el PIN" onkeydown="if(event.key==='Enter')chkPin()">
-    </div>
-    <button class="bp" onclick="chkPin()">Entrar</button>
-    <div class="pe" id="pinErr">PIN incorrecto.</div>
-  </div>
-  <div id="aMesas" style="display:none"></div>
+  <div id="mesas" class="tp"></div>
 </div>
 <script>
 var D=${dj};
 function b64(s){return btoa(unescape(encodeURIComponent(s)));}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function show(id){['roles','espectador','jugador','arbitro'].forEach(function(s){document.getElementById(s).classList.toggle('on',s===id);});}
-function goRoles(){show('roles');}
 function tab(id,btn){
   document.querySelectorAll('.tb').forEach(function(b){b.classList.remove('on');});
   document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('on');});
   btn.classList.add('on');document.getElementById(id).classList.add('on');
 }
+var amistoso=D.tipo==='amistoso';
 function calcStats(){
   var s={};
   D.jugadores.forEach(function(j){s[j.id]={nombre:j.nombre,pv:0,pts:0,p1:0};});
@@ -1751,83 +1713,63 @@ function calcStats(){
       res.forEach(function(x){
         if(!s[x.id])return;
         s[x.id].pv+=x.pv||0;
-        s[x.id].pts+=(D.pts[x.posicion-1]||0);
+        if(!amistoso)s[x.id].pts+=(D.pts[x.posicion-1]||0);
         if(x.posicion===1)s[x.id].p1++;
       });
     });
   });
-  return Object.values(s).sort(function(a,b){return(b.pts-a.pts)||(b.pv-a.pv)||(b.p1-a.p1);});
+  return Object.values(s).sort(function(a,b){
+    return amistoso?((b.pv-a.pv)||(b.p1-a.p1)):((b.pts-a.pts)||(b.pv-a.pv)||(b.p1-a.p1));
+  });
 }
 function renderCls(){
-  var rows=calcStats(),gc=['g1','g2','g3'],h='<table><thead><tr><th>Pos</th><th>Jugador</th><th>Pts</th><th>PV</th><th>1&#186;s</th></tr></thead><tbody>';
-  rows.forEach(function(r,i){h+='<tr><td class="'+(gc[i]||'')+'">'+(i+1)+'&#186;</td><td>'+esc(r.nombre)+'</td><td class="gpts">'+r.pts+'</td><td>'+r.pv+'</td><td>'+r.p1+'</td></tr>';});
+  var rows=calcStats(),gc=['g1','g2','g3'];
+  var h='<table><thead><tr><th>#</th><th>Jugador</th><th>PV</th><th>1&#186;s</th>'+(amistoso?'':'<th>Pts Torneo</th>')+'</tr></thead><tbody>';
+  rows.forEach(function(r,i){
+    h+='<tr><td class="'+(gc[i]||'')+'">'+( i+1)+'&#186;</td><td>'+esc(r.nombre)+'</td><td>'+r.pv+'</td><td>'+r.p1+'</td>'+(amistoso?'':'<td class="gpts">'+r.pts+'</td>')+'</tr>';
+  });
   document.getElementById('cls').innerHTML=h+'</tbody></table>';
 }
-function renderRondas(){
+function renderMesas(){
+  if(!D.rondas.length){document.getElementById('mesas').innerHTML='<p style="color:#a08060;font-size:.85rem">Sin rondas generadas.</p>';return;}
   var h='';
-  D.rondas.forEach(function(r){
-    h+='<div class="rb"><div class="rh">Ronda '+r.numero+'</div><div class="mg">';
-    r.mesas.forEach(function(mesa,mi){
-      var res=(r.resultadosMesas||[])[mi];
-      h+='<div class="mc"><div class="mch">Mesa '+(mi+1)+'</div>';
-      if(res&&res.length){res.forEach(function(x){h+='<div class="rr"><span class="rp '+(x.posicion<=3?'g'+x.posicion:'')+'">'+ x.posicion+'&#186;</span><span class="rn2">'+esc(x.nombre)+'</span><span class="rpv">'+x.pv+' PV</span><span class="rpt">'+( D.pts[x.posicion-1]||0)+' pts</span></div>';});}
-      else{h+='<div class="noR">Sin resultado</div>';mesa.forEach(function(j){h+='<div class="rr"><span class="rn2">'+esc(j.nombre)+'</span></div>';});}
+  D.rondas.slice().reverse().forEach(function(ronda){
+    h+='<div class="sec-ronda">Ronda '+ronda.numero+'</div>';
+    ronda.mesas.forEach(function(mesa,mi){
+      var res=(ronda.resultadosMesas||[])[mi];
+      var cid='cb_'+ronda.numero+'_'+mi;
+      h+='<div class="mc2"><div class="mc2h">Mesa '+(mi+1)+'</div><div class="jl">';
+      mesa.forEach(function(j){
+        var v=res?(res.find(function(x){return x.id==j.id;})||{}).pv:'';
+        h+='<div class="jr"><span class="jn">'+esc(j.nombre)+'</span>'
+          +'<input type="number" class="pi" id="pv_'+ronda.numero+'_'+mi+'_'+j.id+'" data-id="'+j.id+'" min="0" max="30" placeholder="PV"'
+          +(res?' disabled value="'+(v===undefined||v===null?'':v)+'"':'')+'></div>';
+      });
+      h+='</div>';
+      if(res){
+        h+='<div class="ok">&#10003; Resultado ya registrado.</div>';
+      } else {
+        h+='<div style="padding:0 1rem .75rem">'
+          +'<button class="bp" onclick="genCod('+ronda.numero+','+mi+')">&#10003; Generar c&#243;digo</button>'
+          +'<div class="cb" id="'+cid+'"><div class="cl">&#128203; C&#243;digo listo &#8212; env&#237;aselo al organizador:</div>'
+          +'<div class="cw"><textarea class="ct" id="ct_'+cid+'" readonly rows="3"></textarea>'
+          +'<button class="bcp" onclick="cop(\'ct_'+cid+'\',this)">Copiar</button></div></div></div>';
+      }
       h+='</div>';
     });
-    h+='</div></div>';
   });
-  document.getElementById('rondas').innerHTML=h||'<p style="color:#a08060;font-size:.83rem">Sin rondas.</p>';
+  document.getElementById('mesas').innerHTML=h;
 }
-function mesaForm(wrap,ronda,mi,miId){
-  var mesa=ronda.mesas[mi],res=(ronda.resultadosMesas||[])[mi];
-  var h='<div class="mc2"><div class="mc2h">Mesa '+(mi+1)+' &#183; Ronda '+ronda.numero+'</div><div class="jl">';
-  mesa.forEach(function(j){
-    var yo=j.id==miId,v=res?(res.find(function(x){return x.id==j.id;})||{}).pv:'';
-    h+='<div class="jr"><span class="jn'+(yo?' yo':'')+'">'+esc(j.nombre)+(yo?' &#9733;':'')+'</span>'
-      +'<input type="number" class="pi" id="pv'+j.id+'" data-id="'+j.id+'" min="0" max="20" placeholder="PV"'+(res?' disabled value="'+(v===undefined?'':v)+'"':'')+'></div>';
-  });
-  h+='</div>';
-  if(res){h+='<div class="ok">&#10003; Resultado ya introducido.</div>';}
-  else{var cid='cb'+(mi===-1?'j':mi);h+='<div style="padding:0 1rem .75rem">'
-    +'<button class="bp" onclick="genCod('+JSON.stringify(ronda.numero)+','+mi+',-1)">&#10003; Generar c&#243;digo</button>'
-    +'<div class="cb" id="'+cid+'"><div class="cl">&#128203; C&#243;digo listo &#8212; env&#237;aselo al organizador:</div>'
-    +'<div class="cw"><textarea class="ct" id="ct'+cid+'" readonly rows="3"></textarea>'
-    +'<button class="bcp" onclick="cop(\'ct'+cid+'\',this)">Copiar</button></div></div></div>';}
-  h+='</div>';
-  wrap.innerHTML=h;
-}
-function selJugador(){
-  var id=document.getElementById('sj').value,w=document.getElementById('jmesa');
-  if(!id){w.innerHTML='';return;}
-  var ronda=D.rondas.length?D.rondas[D.rondas.length-1]:null;
-  if(!ronda){w.innerHTML='<p style="color:#a08060;font-size:.83rem;margin-top:1rem">Sin rondas generadas.</p>';return;}
-  var mi=-1;ronda.mesas.forEach(function(m,i){m.forEach(function(j){if(j.id==id)mi=i;});});
-  if(mi===-1){w.innerHTML='<p style="color:#a08060;font-size:.83rem;margin-top:1rem">No est&#225;s en ninguna mesa de la ronda actual.</p>';return;}
-  mesaForm(w,ronda,mi,id);
-}
-function genCod(rondaNum,mi,miId){
+function genCod(rondaNum,mi){
   var ronda=D.rondas.find(function(r){return r.numero==rondaNum;});
   var mesa=ronda.mesas[mi];
-  var res=mesa.map(function(j){return{id:j.id,nombre:j.nombre,pv:parseInt(document.getElementById('pv'+j.id).value)||0};});
-  var code=b64(JSON.stringify({torneoId:D.torneoId,rondaNum:parseInt(rondaNum),mesaIdx:mi,resultados:res}));
-  var cid='cb'+(mi===-1?'j':mi),box=document.getElementById(cid);
-  box.style.display='block';document.getElementById('ct'+cid).value=code;
-}
-function chkPin(){
-  if(document.getElementById('pinInp').value.trim()===D.pinArbitro){
-    document.getElementById('pinErr').style.display='none';
-    document.querySelector('.pf').style.display='none';
-    var w=document.getElementById('aMesas');w.style.display='block';
-    var ronda=D.rondas.length?D.rondas[D.rondas.length-1]:null;
-    if(!ronda){w.innerHTML='<p style="color:#a08060;font-size:.83rem">Sin rondas.</p>';return;}
-    var h='<div class="sec">Ronda '+ronda.numero+'</div>';
-    ronda.mesas.forEach(function(mesa,mi){
-      var res=(ronda.resultadosMesas||[])[mi],tmp=document.createElement('div');
-      mesaForm(tmp,ronda,mi,null);
-      h+=tmp.innerHTML;
-    });
-    w.innerHTML=h;
-  } else {document.getElementById('pinErr').style.display='block';}
+  var res=mesa.map(function(j){
+    var v=document.getElementById('pv_'+rondaNum+'_'+mi+'_'+j.id);
+    return{id:j.id,nombre:j.nombre,pv:v?parseInt(v.value)||0:0};
+  });
+  var code=b64(JSON.stringify({torneoId:D.torneoId,rondaNum:rondaNum,mesaIdx:mi,resultados:res}));
+  var cid='cb_'+rondaNum+'_'+mi,box=document.getElementById(cid);
+  box.style.display='block';document.getElementById('ct_'+cid).value=code;
 }
 function cop(id,btn){
   navigator.clipboard.writeText(document.getElementById(id).value)
@@ -1835,17 +1777,10 @@ function cop(id,btn){
 }
 (function(){
   var rn=D.rondas.length,tot=D.numRondas;
-  var badge=document.getElementById('badge-estado');
-  badge.textContent=tot&&rn>=tot?'Completado · '+rn+' rondas':rn?'Ronda '+rn+(tot?' de '+tot:''):' Sin rondas';
-  var roles=[{id:'espectador',i:'&#128065;',n:'Espectador',d:'Ver clasificaci&#243;n y resultados'},{id:'jugador',i:'&#128100;',n:'Soy jugador',d:'Ver tu mesa e introducir resultado'}];
-  if(D.pinArbitro)roles.push({id:'arbitro',i:'&#9878;',n:'&#193;rbitro',d:'Gestionar resultados de todas las mesas'});
-  document.getElementById('role-grid').innerHTML=roles.map(function(r){
-    return '<div class="rc" onclick="show(\''+r.id+'\')"><div class="ri">'+r.i+'</div><div class="rn">'+r.n+'</div><div class="rd">'+r.d+'</div></div>';
-  }).join('');
-  var sel=document.getElementById('sj');
-  D.jugadores.forEach(function(j){var o=document.createElement('option');o.value=j.id;o.textContent=j.nombre;sel.appendChild(o);});
-  renderCls();renderRondas();
-  show('roles');
+  document.getElementById('badge-estado').textContent=
+    tot&&rn>=tot?'Completado \xb7 '+rn+' rondas':rn?'Ronda '+rn+(tot?' de '+tot:''):'Sin rondas';
+  renderCls();
+  renderMesas();
 })();
 <\/script>
 </body>
