@@ -2056,9 +2056,10 @@ function renderPlayerView(shareData) {
   const totalRondas = shareData.numRondas || '?';
 
   // --- Tab: Mesas y resultados (todas las rondas, más reciente primero) ---
-  const rondaActualNum = Math.max(...shareData.rondas.map(r => r.numero));
+  const rondaActualNum = shareData.rondas.reduce((max, r) => Math.max(max, Number(r.numero)), 0);
   const mesasHtml = shareData.rondas.slice().reverse().map(ronda => {
-    const esRondaActual = ronda.numero === rondaActualNum;
+    const numRonda = Number(ronda.numero);
+    const esRondaPasada = numRonda < rondaActualNum;
     const mesasGrid = ronda.mesas.map((mesa, mi) => {
       const res = (ronda.resultadosMesas || [])[mi];
       const sfx = `${ronda.numero}_${mi}`;
@@ -2077,8 +2078,8 @@ function renderPlayerView(shareData) {
             </div>
           </div>`;
       }
-      // Ronda pasada sin resultado → solo lectura, no editable
-      if (!esRondaActual) {
+      // Ronda anterior (n-1, n-2…) sin resultado → siempre solo lectura
+      if (esRondaPasada) {
         return `
           <div class="mesa-card">
             <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
