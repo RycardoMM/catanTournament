@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catan Torneo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-content">
+      <h1>Catan <span>Torneo</span></h1>
+    </div>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <button class="sidebar-item active" data-section="torneo">
+        <span class="sidebar-icon">🏆</span>
+        <span>Torneo</span>
+      </button>
+      <button class="sidebar-item" data-section="mapa">
+        <span class="sidebar-icon">🗺</span>
+        <span>Generar mapa</span>
+      </button>
+    </nav>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area">
+
+      <!-- VISTA INICIO -->
+      <main id="vistaInicio">
+        <section class="hero">
+          <h2>Gestiona tu torneo de Catan</h2>
+          <p>Crea torneos, registra partidas y lleva el seguimiento de tus jugadores.</p>
+          <button class="btn-primary" id="btnCrearTorneo">+ Crear Torneo</button>
+        </section>
+        <section class="torneos-activos">
+          <h3>Torneos activos</h3>
+          <div id="listaTorneos" class="lista-torneos">
+            <p class="empty-state">No hay torneos creados aún.</p>
+          </div>
+        </section>
+      </main>
+
+      <!-- VISTA DETALLE TORNEO -->
+      <main id="vistaDetalle" class="hidden">
+        <div class="detalle-header">
+          <button id="btnVolver" class="btn-back">← Volver</button>
+          <div class="detalle-titulo">
+            <h2 id="detalleName"></h2>
+            <span id="detalleMeta" class="meta-info"></span>
+          </div>
+          <div class="detalle-header-right">
+            <button id="btnCompartirTorneo" class="btn-sm btn-outline">🔗 Compartir torneo</button>
+            <span id="detalleBadge" class="badge"></span>
+          </div>
+        </div>
+
+        <div class="detalle-tabs">
+          <button class="tab-btn active" data-tab="jugadores">👥 Jugadores</button>
+          <button class="tab-btn" data-tab="mapa">🗺 Mapa</button>
+          <button class="tab-btn" data-tab="clasificacion">🏆 Clasificación</button>
+          <button class="tab-btn" data-tab="historial">📜 Historial</button>
+        </div>
+
+        <!-- TAB: JUGADORES + EMPAREJAMIENTO -->
+        <div class="tab-content" id="tabJugadores">
+          <div class="detalle-body">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Jugadores <span id="contadorJugadores" class="counter">0</span></h3>
+                <div class="panel-actions">
+                  <button id="btnAgregarJugador" class="btn-sm btn-outline">+ Agregar</button>
+                  <button id="btnJugadoresPrueba" class="btn-sm btn-outline">Rellenar prueba</button>
+                </div>
+              </div>
+              <div id="addJugadorForm" class="add-jugador-form hidden">
+                <input type="text" id="inputNombreJugador" placeholder="Nombre del jugador" />
+                <button id="btnConfirmarJugador" class="btn-sm btn-primary">Añadir</button>
+              </div>
+              <div id="listaJugadores" class="jugadores-grid"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Emparejamiento</h3>
+                <button id="btnGenerarRonda" class="btn-primary btn-sm">Generar Ronda 1</button>
+              </div>
+              <div id="listaRondas"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: MAPA -->
+        <div class="tab-content hidden" id="tabMapa">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Mapa del torneo</h3>
+              <div class="panel-actions mapa-opciones-inline">
+                <span class="opcion-chip">
+                  <label class="toggle"><input type="checkbox" id="tOpt68" checked /><span class="toggle-slider"></span></label>
+                  <span>6/8 adyacentes</span>
+                </span>
+                <span class="opcion-chip">
+                  <label class="toggle"><input type="checkbox" id="tOptSameNum" /><span class="toggle-slider"></span></label>
+                  <span>Nº iguales adyacentes</span>
+                </span>
+                <span class="opcion-chip">
+                  <label class="toggle"><input type="checkbox" id="tOptSameRes" /><span class="toggle-slider"></span></label>
+                  <span>Recursos iguales adyacentes</span>
+                </span>
+                <button id="btnGenerarMapaTorneo" class="btn-sm btn-primary">↺ Generar</button>
+              </div>
+            </div>
+            <div id="hexBoardDetalle">
+              <p class="mapa-placeholder">Pulsa <strong>↺ Generar</strong> para crear el mapa.</p>
+            </div>
+            <p id="mapaInfoDetalle" class="mapa-info"></p>
+          </div>
+        </div>
+
+        <!-- TAB: CLASIFICACIÓN -->
+        <div class="tab-content hidden" id="tabClasificacion">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Clasificación</h3>
+              <div id="clasificacionSelectorWrap"></div>
+            </div>
+            <div id="tablaClasificacion"></div>
+          </div>
+        </div>
+
+        <!-- TAB: HISTORIAL -->
+        <div class="tab-content hidden" id="tabHistorial">
+          <div id="contenidoHistorial"></div>
+        </div>
+
+      </main>
+
+      <!-- VISTA GENERAR MAPA -->
+      <main id="vistaMapa" class="hidden">
+
+        <div class="mapa-toolbar">
+          <div class="mapa-opciones-row">
+            <span class="opcion-chip">
+              <label class="toggle">
+                <input type="checkbox" id="opt68" checked />
+                <span class="toggle-slider"></span>
+              </label>
+              <span>6/8 adyacentes</span>
+            </span>
+            <span class="opcion-chip">
+              <label class="toggle">
+                <input type="checkbox" id="optSameNum" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span>Nº iguales adyacentes</span>
+            </span>
+            <span class="opcion-chip">
+              <label class="toggle">
+                <input type="checkbox" id="optSameRes" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span>Recursos iguales adyacentes</span>
+            </span>
+          </div>
+          <button id="btnGenerarMapa" class="btn-primary btn-mapa-toolbar">↺ Generar mapa</button>
+        </div>
+
+        <div class="mapa-board-wrap">
+          <div id="hexBoard">
+            <p class="mapa-placeholder">Pulsa <strong>↺ Generar mapa</strong> para crear el tablero.</p>
+          </div>
+          <p id="mapaInfo" class="mapa-info"></p>
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- VISTA JUGADOR (enlace compartido) -->
+  <div id="vistaJugador" class="hidden">
+    <div id="playerViewContent"></div>
+  </div>
+
+  <!-- Modal crear torneo -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal">
+      <button class="modal-close" id="btnCerrarModal">&times;</button>
+      <h2>Crear Torneo</h2>
+      <form id="formTorneo" novalidate>
+        <div class="form-group">
+          <label for="nombreTorneo">Nombre del torneo</label>
+          <input type="text" id="nombreTorneo" placeholder="Ej: Liga Primavera 2026" required />
+        </div>
+        <div class="form-group">
+          <label for="numJugadores">Número de jugadores</label>
+          <input type="number" id="numJugadores" min="4" placeholder="Mínimo 4" required />
+        </div>
+        <div class="form-group">
+          <label for="jugadoresPorPartida">Jugadores por partida</label>
+          <select id="jugadoresPorPartida">
+            <option value="3">3 jugadores</option>
+            <option value="4" selected>4 jugadores</option>
+            <option value="5">5 jugadores</option>
+            <option value="6">6 jugadores</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="numRondas">Número de rondas</label>
+          <input type="number" id="numRondas" min="1" max="20" placeholder="Ej: 3" required />
+        </div>
+        <div class="form-group">
+          <label for="pinArbitro">PIN de árbitro <span class="hint">(opcional)</span></label>
+          <input type="text" id="pinArbitro" placeholder="Ej: 1234" maxlength="12" />
+          <p class="hint" style="margin-top:.3rem">Los árbitros lo usarán para introducir resultados desde el formulario compartido.</p>
+        </div>
+        <div class="form-group">
+          <label for="formatoTorneo">Sistema de emparejamiento</label>
+          <select id="formatoTorneo">
+            <option value="todos_contra_todos">Todos contra todos — emparejamiento aleatorio</option>
+            <option value="suizo">Sistema suizo — los mejores se enfrentan entre sí</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Métodos de desempate <span class="hint">(arrastra para ordenar por prioridad)</span></label>
+          <div class="desempate-list" id="desempateList">
+            <div class="desempate-item" draggable="true" data-value="puntos_victoria">
+              <span class="drag-handle">&#8597;</span><span class="desempate-num">1</span>
+              <label>Jugador con más puntos de victoria</label>
+            </div>
+            <div class="desempate-item" draggable="true" data-value="carretera_larga">
+              <span class="drag-handle">&#8597;</span><span class="desempate-num">2</span>
+              <label>Jugador con la carretera más larga</label>
+            </div>
+            <div class="desempate-item" draggable="true" data-value="menos_recursos">
+              <span class="drag-handle">&#8597;</span><span class="desempate-num">3</span>
+              <label>Jugador con menos cartas de recursos</label>
+            </div>
+            <div class="desempate-item" draggable="true" data-value="cartas_desarrollo">
+              <span class="drag-handle">&#8597;</span><span class="desempate-num">4</span>
+              <label>Jugador con más cartas de desarrollo</label>
+            </div>
+          </div>
+          <p class="hint">Arrastra para reordenar la prioridad.</p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btnCancelar">Cancelar</button>
+          <button type="submit" class="btn-primary">Crear Torneo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal desempate -->
+  <div class="modal-overlay hidden" id="modalEmpate">
+    <div class="modal modal-empate">
+      <h2>⚖️ Desempate</h2>
+      <p class="modal-empate-desc">Hay jugadores con los mismos puntos de victoria. Arrastra para establecer el orden final según los criterios de desempate del torneo.</p>
+      <div id="empateDesempateCriterios"></div>
+      <div id="empateGrupos"></div>
+      <div class="form-actions" style="margin-top:1.5rem">
+        <button class="btn-secondary" id="btnCancelarEmpate">Cancelar</button>
+        <button class="btn-primary" id="btnConfirmarEmpate">Confirmar orden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal confirmar eliminación -->
+  <div class="modal-overlay hidden" id="modalConfirm">
+    <div class="modal modal-confirm">
+      <div class="modal-confirm-icon">🗑</div>
+      <h2 id="modalConfirmTitle">¿Eliminar torneo?</h2>
+      <p id="modalConfirmMsg" class="modal-confirm-msg">Esta acción no se puede deshacer.</p>
+      <div class="form-actions">
+        <button class="btn-secondary" id="btnConfirmCancel">Cancelar</button>
+        <button class="btn-danger" id="btnConfirmOk">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal compartir ronda -->
+  <div class="modal-overlay hidden" id="modalShareRonda">
+    <div class="modal share-modal">
+      <button class="modal-close" id="btnCerrarShareRonda">&times;</button>
+      <h2>🔗 Compartir ronda</h2>
+
+      <div class="share-section">
+        <p class="share-section-title">📄 Formulario descargable <span class="share-badge-rec">Recomendado</span></p>
+        <p class="share-section-desc">Descarga un formulario HTML y compártelo por WhatsApp, Telegram o email. Los jugadores lo abren en su navegador sin necesidad de red.</p>
+        <button id="btnDescargarFormulario" class="btn-primary share-download-btn">⬇ Descargar formulario</button>
+        <p id="shareDownloadedMsg" class="share-copied hidden">✓ ¡Formulario descargado!</p>
+      </div>
+
+      <div class="share-divider"><span>o bien</span></div>
+
+      <div class="share-section">
+        <p class="share-section-title">🌐 Enlace directo <span class="share-badge-warn">Solo red local</span></p>
+        <p class="share-section-desc">Funciona únicamente si los jugadores están conectados a la misma red Wi-Fi que este equipo.</p>
+        <div class="share-url-wrap">
+          <input type="text" id="shareUrlInput" readonly />
+          <button id="btnCopyShareUrl" class="btn-sm btn-outline">📋 Copiar</button>
+        </div>
+        <p id="shareCopiedMsg" class="share-copied hidden">✓ ¡Copiado!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal importar resultado -->
+  <div class="modal-overlay hidden" id="modalImportarRes">
+    <div class="modal">
+      <button class="modal-close" id="btnCerrarImportarRes">&times;</button>
+      <h2>📥 Importar resultado</h2>
+      <p class="modal-empate-desc">Pega el código de resultado generado por los jugadores:</p>
+      <textarea id="importarResCodigo" class="import-code-input" rows="4" placeholder="Pega el código aquí..."></textarea>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn-secondary" id="btnCancelarImportarRes">Cancelar</button>
+        <button class="btn-primary" id="btnConfirmarImportarRes">Importar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
