@@ -1585,29 +1585,34 @@ function renderRondas() {
 
     return `
       <div id="org-ronda-panel-${rondaIdx}" class="org-ronda-panel${isActive ? '' : ' hidden'}">
-        <div class="ronda-panel-header">
-          <button class="btn-sm ${enEdicion ? 'btn-primary' : 'btn-outline'} btn-edit-ronda" data-ronda="${rondaIdx}">
-            ${enEdicion ? '✓ Guardar cambios' : '✏️ Editar mesas'}
-          </button>
-        </div>
-        ${enEdicion ? `<p class="edit-hint">${hintText}</p>` : ''}
-        ${enEdicion && ronda.sinAsignar.length > 0 ? `
-          <div class="pool-sin-asignar">
-            <div class="pool-titulo">Sin asignar (${ronda.sinAsignar.length})</div>
-            <ul class="pool-lista">
-              ${ronda.sinAsignar.map((j, idx) => {
-                const esSeleccionado = haySeleccion && editState.mesaIdx === -1 && editState.jugadorIdx === idx;
-                return `<li class="jugador-editable ${esSeleccionado ? 'jugador-selected' : ''}"
-                    data-ronda="${rondaIdx}" data-mesa="-1" data-jugador="${idx}">
-                    <span class="pool-dot"></span>
-                    <span class="jugador-nombre">${escapeHtml(j.nombre)}</span>
-                    <span class="swap-icon">⇄</span>
-                  </li>`;
-              }).join('')}
-            </ul>
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Ronda ${ronda.numero}</h3>
+            <div class="panel-actions">
+              <button class="btn-sm ${enEdicion ? 'btn-primary' : 'btn-outline'} btn-edit-ronda" data-ronda="${rondaIdx}">
+                ${enEdicion ? '✓ Guardar cambios' : '✏️ Editar mesas'}
+              </button>
+            </div>
           </div>
-        ` : ''}
-        <div class="mesas-grid">${mesasGridHtml}</div>
+          ${enEdicion ? `<p class="edit-hint">${hintText}</p>` : ''}
+          ${enEdicion && ronda.sinAsignar.length > 0 ? `
+            <div class="pool-sin-asignar">
+              <div class="pool-titulo">Sin asignar (${ronda.sinAsignar.length})</div>
+              <ul class="pool-lista">
+                ${ronda.sinAsignar.map((j, idx) => {
+                  const esSeleccionado = haySeleccion && editState.mesaIdx === -1 && editState.jugadorIdx === idx;
+                  return `<li class="jugador-editable ${esSeleccionado ? 'jugador-selected' : ''}"
+                      data-ronda="${rondaIdx}" data-mesa="-1" data-jugador="${idx}">
+                      <span class="pool-dot"></span>
+                      <span class="jugador-nombre">${escapeHtml(j.nombre)}</span>
+                      <span class="swap-icon">⇄</span>
+                    </li>`;
+                }).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          <div class="mesas-grid">${mesasGridHtml}</div>
+        </div>
       </div>`;
   }).join('');
 

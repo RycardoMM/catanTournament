@@ -1408,11 +1408,6 @@ main {
   margin-left: 0.15rem;
 }
 .org-ronda-panel { }
-.ronda-panel-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.5rem 0 0.75rem;
-}
 
 /* PESTAÑAS DE RONDA (dentro de la pestaña Mesas, vista invitado) */
 .pv-rondas-tabs {
