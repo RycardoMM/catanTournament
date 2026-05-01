@@ -2009,8 +2009,6 @@ function mostrarVistaJugador() {
 }
 
 function renderPlayerView(shareData) {
-  mostrarVistaJugador();
-  const contenedor = document.getElementById('playerViewContent');
   const esAmistoso = shareData.tipo === 'amistoso';
   const rondaActual = shareData.rondas.length;
   const totalRondas = shareData.numRondas || '?';
@@ -2114,6 +2112,9 @@ function renderPlayerView(shareData) {
 
   const hayHistorial = rondasConResultados.length > 0;
 
+  // Todo el HTML está listo — ahora sí tocamos el DOM
+  mostrarVistaJugador();
+  const contenedor = document.getElementById('playerViewContent');
   contenedor.innerHTML = `
     <div class="player-header">
       <div class="player-torneo-nombre">🏆 ${escapeHtml(shareData.torneoNombre)}</div>
@@ -2238,7 +2239,20 @@ function checkShareMode() {
     return true;
   } catch(e) {
     console.error('Error al procesar el enlace compartido:', e);
-    return false;
+    // Fallback: mostrar mensaje de error en lugar de pantalla en blanco
+    mostrarVistaJugador();
+    const contenedor = document.getElementById('playerViewContent');
+    contenedor.innerHTML = `
+      <div class="player-header">
+        <div class="player-torneo-nombre">⚠️ Error al cargar el torneo</div>
+      </div>
+      <div class="panel" style="text-align:center;padding:2rem">
+        <p>El enlace no es válido o está desactualizado.</p>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem">${e.message}</p>
+        <button class="btn-primary" style="margin-top:1.5rem"
+          onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
+      </div>`;
+    return true; // evita que renderTorneos() intente mostrar el layout
   }
 }
 
