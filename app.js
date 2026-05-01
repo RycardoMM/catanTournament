@@ -1885,12 +1885,16 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   const payload = {
     torneoId: t.id,
     torneoNombre: t.nombre,
-    rondaNum: t.rondas.length > 0 ? t.rondas[t.rondas.length - 1].numero : 1,
-    mesas: t.rondas.length > 0
-      ? t.rondas[t.rondas.length - 1].mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre })))
-      : []
+    tipo: t.tipo || 'oficial',
+    numRondas: t.numRondas || null,
+    jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
+    rondas: t.rondas.map(r => ({
+      numero: r.numero,
+      sistema: r.sistema,
+      mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre }))),
+      resultadosMesas: r.resultadosMesas || []
+    }))
   };
-  state._sharePayload = payload;
   const hash = '#share=' + _b64Encode(JSON.stringify(payload));
   const url = window.location.href.split('#')[0] + hash;
   document.getElementById('shareUrlInput').value = url;
@@ -1911,52 +1915,144 @@ function mostrarVistaJugador() {
 function renderPlayerView(shareData) {
   mostrarVistaJugador();
   const contenedor = document.getElementById('playerViewContent');
+  const esAmistoso = shareData.tipo === 'amistoso';
+  const rondaActual = shareData.rondas.length;
+  const totalRondas = shareData.numRondas || '?';
+
+  // Calcular clasificación
+  const stats = {};
+  shareData.jugadores.forEach(j => {
+    stats[j.id] = { nombre: j.nombre, pv: 0, torneoPoints: 0, primerPuesto: 0 };
+  });
+  shareData.rondas.forEach(ronda => {
+    (ronda.resultadosMesas || []).forEach(res => {
+      if (!res) return;
+      res.forEach(r => {
+        if (!stats[r.id]) return;
+        stats[r.id].pv += r.pv || 0;
+        if (!esAmistoso) stats[r.id].torneoPoints += TORNEO_PUNTOS[r.posicion - 1] || 0;
+        if (r.posicion === 1) stats[r.id].primerPuesto++;
+      });
+    });
+  });
+  const ordenados = Object.values(stats).sort((a, b) =>
+    esAmistoso
+      ? (b.pv - a.pv || b.primerPuesto - a.primerPuesto)
+      : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto)
+  );
+
+  // Construir HTML de mesas por ronda (más reciente primero)
+  const mesasHtml = shareData.rondas.slice().reverse().map(ronda => {
+    const mesasGrid = ronda.mesas.map((mesa, mi) => {
+      const res = (ronda.resultadosMesas || [])[mi];
+      const sfx = `${ronda.numero}_${mi}`;
+      if (res && res.length) {
+        return `
+          <div class="mesa-card">
+            <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
+            <div class="resultado-display">
+              ${res.map(r => `
+                <div class="resultado-item pos${r.posicion}">
+                  <span class="res-pos">${r.posicion}º</span>
+                  <span class="res-nombre">${escapeHtml(r.nombre)}</span>
+                  <span class="res-pv">${r.pv} PV</span>
+                  ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+                </div>`).join('')}
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="mesa-card">
+          <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
+          <ul class="mesa-jugadores">
+            ${mesa.map(j => `<li><span class="jugador-nombre">${escapeHtml(j.nombre)}</span></li>`).join('')}
+          </ul>
+          <div class="resultado-form">
+            ${mesa.map(j => `
+              <div class="resultado-input-row">
+                <span class="res-nombre">${escapeHtml(j.nombre)}</span>
+                <input class="res-pv-input" type="number" min="0" max="30" placeholder="PV"
+                  id="pvg_${sfx}_${j.id}" data-id="${j.id}" />
+              </div>`).join('')}
+            <div class="resultado-form-actions">
+              <button class="btn-sm btn-primary btn-pv-gencode"
+                data-ronda="${ronda.numero}" data-mesa="${mi}">✓ Generar código</button>
+            </div>
+          </div>
+          <div class="player-code-result hidden" id="pvcode-${sfx}">
+            <p class="player-code-label">📋 Código listo — envíaselo al organizador:</p>
+            <div class="player-code-wrap">
+              <textarea class="player-code-text" readonly rows="3"></textarea>
+              <button class="btn-sm btn-primary btn-pv-copy" data-sfx="${sfx}">Copiar</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="panel" style="margin-bottom:1.25rem">
+        <div class="panel-header"><h3>Ronda ${ronda.numero}</h3></div>
+        <div class="mesas-grid">${mesasGrid}</div>
+      </div>`;
+  }).join('');
+
   contenedor.innerHTML = `
     <div class="player-header">
       <div class="player-torneo-nombre">🏆 ${escapeHtml(shareData.torneoNombre)}</div>
-      <div class="player-ronda-badge">Ronda ${shareData.rondaNum}</div>
+      <div class="player-ronda-badge">Ronda ${rondaActual} de ${totalRondas}</div>
     </div>
-    <p class="player-instrucciones">Encuentra tu mesa, introduce los puntos de victoria (PV) de cada jugador y pulsa <strong>Generar código</strong>. Envía el código al organizador.</p>
-    <div class="player-mesas">
-      ${shareData.mesas.map((mesa, mi) => `
-        <div class="player-mesa-card" id="player-mesa-${mi}">
-          <div class="player-mesa-title">Mesa ${mi + 1}</div>
-          <div class="player-jugadores">
-            ${mesa.map(j => `
-              <div class="player-jugador-row">
-                <span class="player-jugador-nombre">${escapeHtml(j.nombre)}</span>
-                <input type="number" class="player-pv-input"
-                  data-id="${j.id}" min="0" max="20" placeholder="PV" />
-              </div>`).join('')}
-          </div>
-          <button class="btn-primary btn-generar-codigo" data-mesa="${mi}">✓ Generar código</button>
-          <div class="player-code-result hidden" id="player-code-${mi}">
-            <p class="player-code-label">📋 Código listo — cópialo y envíaselo al organizador:</p>
-            <div class="player-code-wrap">
-              <textarea class="player-code-text" readonly rows="3"></textarea>
-              <button class="btn-sm btn-primary btn-copy-code" data-mesa="${mi}">Copiar</button>
-            </div>
-          </div>
-        </div>`).join('')}
+    <div class="detalle-tabs">
+      <button class="tab-btn active" data-pv-tab="clasif">🏆 Clasificación</button>
+      <button class="tab-btn" data-pv-tab="mesas">🎯 Mesas y resultados</button>
+    </div>
+    <div id="pvTabClasif" class="tab-content">
+      <div class="panel">
+        <table class="clasificacion-table">
+          <thead><tr>
+            <th>#</th><th>Jugador</th><th>PV</th><th>1er Puesto</th>
+            ${!esAmistoso ? '<th>Pts Torneo</th>' : ''}
+          </tr></thead>
+          <tbody>
+            ${ordenados.map((j, i) => `
+              <tr>
+                <td class="pos-num ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</td>
+                <td>${escapeHtml(j.nombre)}</td>
+                <td>${j.pv}</td>
+                <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
+                ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>` : ''}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="pvTabMesas" class="tab-content hidden">
+      ${mesasHtml || '<p class="empty-state-tab">Sin rondas generadas aún.</p>'}
     </div>`;
 
-  contenedor.querySelectorAll('.btn-generar-codigo').forEach(btn => {
+  // Tabs
+  contenedor.querySelectorAll('[data-pv-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
+      contenedor.querySelectorAll('[data-pv-tab]').forEach(b => b.classList.remove('active'));
+      contenedor.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.pvTab === 'clasif' ? 'pvTabClasif' : 'pvTabMesas').classList.remove('hidden');
+    });
+  });
+
+  // Generar código
+  contenedor.querySelectorAll('.btn-pv-gencode').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rondaNum = parseInt(btn.dataset.ronda);
       const mi = parseInt(btn.dataset.mesa);
-      const mesaCard = contenedor.querySelector(`#player-mesa-${mi}`);
-      const mesa = shareData.mesas[mi];
-      const resultados = mesa.map(j => {
-        const inp = mesaCard.querySelector(`[data-id="${j.id}"]`);
-        return { id: j.id, nombre: j.nombre, pv: parseInt(inp.value) || 0 };
-      });
-      const payload = {
-        torneoId: shareData.torneoId,
-        rondaNum: shareData.rondaNum,
-        mesaIdx: mi,
-        resultados
-      };
-      const code = _b64Encode(JSON.stringify(payload));
-      const codeDiv = contenedor.querySelector(`#player-code-${mi}`);
+      const ronda = shareData.rondas.find(r => r.numero === rondaNum);
+      const resultados = ronda.mesas[mi].map(j => ({
+        id: j.id,
+        nombre: j.nombre,
+        pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
+      }));
+      const code = _b64Encode(JSON.stringify({ torneoId: shareData.torneoId, rondaNum, mesaIdx: mi, resultados }));
+      const sfx = `${rondaNum}_${mi}`;
+      const codeDiv = document.getElementById(`pvcode-${sfx}`);
       codeDiv.classList.remove('hidden');
       codeDiv.querySelector('.player-code-text').value = code;
       btn.textContent = '✓ Código generado';
@@ -1964,10 +2060,10 @@ function renderPlayerView(shareData) {
     });
   });
 
-  contenedor.querySelectorAll('.btn-copy-code').forEach(btn => {
+  // Copiar código
+  contenedor.querySelectorAll('.btn-pv-copy').forEach(btn => {
     btn.addEventListener('click', () => {
-      const mi = parseInt(btn.dataset.mesa);
-      const text = contenedor.querySelector(`#player-code-${mi} .player-code-text`).value;
+      const text = document.getElementById(`pvcode-${btn.dataset.sfx}`).querySelector('.player-code-text').value;
       navigator.clipboard.writeText(text).then(() => {
         btn.textContent = '✓ Copiado';
         setTimeout(() => btn.textContent = 'Copiar', 2500);
