@@ -637,7 +637,10 @@ function calcularStats(t, rondas) {
   return stats;
 }
 
-function renderClasificacion(hastaRondaIdx) {
+let _clasificPagina = 0;
+let _clasificUltimoIdx = undefined;
+
+function renderClasificacion(hastaRondaIdx, pagina) {
   const t = state.torneoActivo;
   const contenedor = document.getElementById('tablaClasificacion');
   const selectorWrap = document.getElementById('clasificacionSelectorWrap');
@@ -647,8 +650,20 @@ function renderClasificacion(hastaRondaIdx) {
     return;
   }
 
-  // Selector de ronda
+  // Calcular la página a mostrar
   const rondasConRes = t.rondas.filter(r => r.resultadosMesas && r.resultadosMesas.length > 0);
+  const idxFin = hastaRondaIdx !== undefined ? hastaRondaIdx : rondasConRes.length - 1;
+
+  // Reset page when hastaRondaIdx changes and pagina is not explicitly provided
+  if (pagina === undefined && idxFin !== _clasificUltimoIdx) {
+    _clasificPagina = 0;
+  }
+  _clasificUltimoIdx = idxFin;
+
+  const pag = pagina !== undefined ? pagina : _clasificPagina;
+  _clasificPagina = pag;
+
+  // Selector de ronda
   if (selectorWrap) {
     if (rondasConRes.length > 1) {
       const idx = hastaRondaIdx !== undefined ? hastaRondaIdx : rondasConRes.length - 1;
@@ -660,7 +675,7 @@ function renderClasificacion(hastaRondaIdx) {
             </option>`).join('')}
         </select>`;
       document.getElementById('selectorRonda').addEventListener('change', e => {
-        renderClasificacion(parseInt(e.target.value));
+        renderClasificacion(parseInt(e.target.value), 0);
       });
     } else {
       selectorWrap.innerHTML = '';
@@ -668,7 +683,6 @@ function renderClasificacion(hastaRondaIdx) {
   }
 
   // Calcular stats hasta la ronda seleccionada
-  const idxFin = hastaRondaIdx !== undefined ? hastaRondaIdx : rondasConRes.length - 1;
   const rondasFiltradas = rondasConRes.slice(0, idxFin + 1);
   const stats = calcularStats(t, rondasFiltradas);
 
@@ -678,6 +692,10 @@ function renderClasificacion(hastaRondaIdx) {
     b.primerPuesto - a.primerPuesto ||
     b.desempateVictorias - a.desempateVictorias
   );
+
+  const totalPags = Math.ceil(ordenados.length / 10);
+  const slice = ordenados.slice(pag * 10, pag * 10 + 10);
+  const offsetIdx = pag * 10;
 
   contenedor.innerHTML = `
     <table class="clasificacion-table">
@@ -692,19 +710,33 @@ function renderClasificacion(hastaRondaIdx) {
         </tr>
       </thead>
       <tbody>
-        ${ordenados.map((j, i) => `
+        ${slice.map((j, i) => {
+          const pos = offsetIdx + i;
+          return `
           <tr>
-            <td class="pos-num ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</td>
+            <td class="pos-num ${pos === 0 ? 'top1' : pos === 1 ? 'top2' : pos === 2 ? 'top3' : ''}">${pos + 1}</td>
             <td>${escapeHtml(j.nombre)}</td>
             <td>${j.pv}</td>
             <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
             <td>${j.desempateVictorias > 0 ? `<span class="desempate-victoria-badge">${j.desempateVictorias}</span>` : '—'}</td>
             <td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>
-          </tr>
-        `).join('')}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>
+    <div class="clasif-pagination">
+      <button class="btn-pag-prev btn-sm btn-outline" ${pag === 0 ? 'disabled' : ''}>‹ Anterior</button>
+      <span class="pag-info">${pag + 1} / ${totalPags || 1}</span>
+      <button class="btn-pag-next btn-sm btn-outline" ${pag >= totalPags - 1 ? 'disabled' : ''}>Siguiente ›</button>
+    </div>
   `;
+
+  contenedor.querySelector('.btn-pag-prev')?.addEventListener('click', () =>
+    renderClasificacion(hastaRondaIdx !== undefined ? hastaRondaIdx : idxFin, pag - 1)
+  );
+  contenedor.querySelector('.btn-pag-next')?.addEventListener('click', () =>
+    renderClasificacion(hastaRondaIdx !== undefined ? hastaRondaIdx : idxFin, pag + 1)
+  );
 }
 
 function renderHistorial() {
@@ -715,10 +747,19 @@ function renderHistorial() {
     return;
   }
 
-  contenedor.innerHTML = t.rondas.map((ronda, rondaIdx) => {
+  // Initialize accordion state if not present; open last round by default
+  if (!state._histAbiertas) {
+    state._histAbiertas = new Set([t.rondas.length - 1]);
+  }
+
+  contenedor.innerHTML = `<div class="hist-acordeon">${t.rondas.map((ronda, rondaIdx) => {
+    const isOpen = state._histAbiertas.has(rondaIdx);
     const sistemaLabel = ronda.sistema === 'suizo'
       ? '<span class="hist-badge suizo">🏅 Sistema suizo</span>'
       : '<span class="hist-badge aleatorio">🎲 Aleatorio</span>';
+
+    const total = ronda.mesas.length;
+    const completadas = (ronda.resultadosMesas || []).filter(r => r && r.length > 0).length;
 
     const mesasHtml = ronda.mesas.map((mesa, mesaIdx) => {
       const res = (ronda.resultadosMesas || [])[mesaIdx];
@@ -741,14 +782,32 @@ function renderHistorial() {
     }).join('');
 
     return `
-      <div class="hist-ronda">
-        <div class="hist-ronda-header">
-          <span class="hist-ronda-titulo">Ronda ${ronda.numero}</span>
-          ${sistemaLabel}
+      <div class="hist-card" data-ronda-idx="${rondaIdx}">
+        <div class="hist-card-header" data-toggle="${rondaIdx}">
+          <div class="hist-card-info">
+            <span class="hist-ronda-num">Ronda ${ronda.numero}</span>
+            ${sistemaLabel}
+            <span class="hist-progress-chip">${completadas}/${total} completadas</span>
+          </div>
+          <span class="hist-chevron">${isOpen ? '▲' : '▼'}</span>
         </div>
-        <div class="hist-mesas">${mesasHtml}</div>
+        <div class="hist-card-body ${isOpen ? '' : 'hidden'}">
+          <div class="hist-mesas">${mesasHtml}</div>
+        </div>
       </div>`;
-  }).join('');
+  }).join('')}</div>`;
+
+  contenedor.querySelectorAll('.hist-card-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const idx = parseInt(header.dataset.toggle);
+      if (state._histAbiertas.has(idx)) {
+        state._histAbiertas.delete(idx);
+      } else {
+        state._histAbiertas.add(idx);
+      }
+      renderHistorial();
+    });
+  });
 }
 
 // --- Vista detalle ---
@@ -785,6 +844,17 @@ function renderDetalle() {
 }
 
 // --- Jugadores ---
+document.getElementById('btnToggleJugadores').addEventListener('click', () => {
+  const lista = document.getElementById('listaJugadores');
+  const form = document.getElementById('addJugadorForm');
+  const btn = document.getElementById('btnToggleJugadores');
+  const collapsed = lista.classList.toggle('jugadores-collapsed');
+  btn.textContent = collapsed ? '▲' : '▼';
+  if (collapsed) {
+    form.classList.add('hidden');
+  }
+});
+
 document.getElementById('btnAgregarJugador').addEventListener('click', () => {
   const form = document.getElementById('addJugadorForm');
   form.classList.toggle('hidden');
@@ -1307,9 +1377,6 @@ function renderRondas() {
             <button class="btn-sm ${enEdicion ? 'btn-primary' : 'btn-outline'} btn-edit-ronda" data-ronda="${rondaIdx}">
               ${enEdicion ? '✓ Guardar cambios' : '✏️ Editar mesas'}
             </button>
-            <button class="btn-sm btn-outline btn-import-ronda" data-ronda="${rondaIdx}" title="Importar código de resultado">
-              📥 Importar código
-            </button>
           </div>
         </div>
         ${enEdicion ? `<p class="edit-hint">${hintText}</p>` : ''}
@@ -1438,14 +1505,31 @@ function renderRondas() {
     });
   });
 
-  contenedor.querySelectorAll('.btn-import-ronda').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state._importRondaIdx = parseInt(btn.dataset.ronda);
-      document.getElementById('importarResCodigo').value = '';
-      document.getElementById('modalImportarRes').classList.remove('hidden');
+}
+
+// --- Filter mesas ---
+function aplicarFiltroMesas(texto) {
+  const q = texto.toLowerCase().trim();
+  document.querySelectorAll('#listaRondas .mesa-card').forEach(card => {
+    const spans = card.querySelectorAll('.jugador-nombre');
+    if (!q) {
+      card.classList.remove('mesa-filtrada');
+      spans.forEach(s => s.classList.remove('nombre-highlight'));
+      return;
+    }
+    let match = false;
+    spans.forEach(s => {
+      s.classList.remove('nombre-highlight');
+      if (s.textContent.toLowerCase().includes(q)) {
+        s.classList.add('nombre-highlight');
+        match = true;
+      }
     });
+    card.classList.toggle('mesa-filtrada', !match);
   });
 }
+
+document.getElementById('filtroMesas').addEventListener('input', e => aplicarFiltroMesas(e.target.value.trim()));
 
 // --- Helpers ---
 function formatFormato(key) {
@@ -1513,8 +1597,6 @@ function importarCodigo(rawCode) {
       return;
     }
     _finalizarGuardadoResultado(rondaIdx, data.mesaIdx, data.resultados.map(r => ({ ...r })));
-    document.getElementById('modalImportarRes').classList.add('hidden');
-    document.getElementById('importarResCodigo').value = '';
     cambiarTab('jugadores');
   } catch(e) {
     alert('Código inválido o corrupto. Comprueba que has copiado el código completo.');
@@ -1888,18 +1970,6 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   document.getElementById('modalShareRonda').classList.remove('hidden');
 });
 
-// Modal importar — eventos
-document.getElementById('btnCerrarImportarRes').addEventListener('click', () => {
-  document.getElementById('modalImportarRes').classList.add('hidden');
-});
-document.getElementById('btnCancelarImportarRes').addEventListener('click', () => {
-  document.getElementById('modalImportarRes').classList.add('hidden');
-});
-document.getElementById('btnConfirmarImportarRes').addEventListener('click', () => {
-  const code = document.getElementById('importarResCodigo').value.trim();
-  if (!code) return;
-  importarCodigo(code);
-});
 
 // =============================================
 // VISTA JUGADOR (hash #share=...)

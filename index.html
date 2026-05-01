@@ -78,6 +78,7 @@
                 <div class="panel-actions">
                   <button id="btnAgregarJugador" class="btn-sm btn-outline">+ Agregar</button>
                   <button id="btnJugadoresPrueba" class="btn-sm btn-outline">Rellenar prueba</button>
+                  <button id="btnToggleJugadores" class="btn-sm btn-outline btn-icon-only" title="Minimizar/Expandir">▼</button>
                 </div>
               </div>
               <div id="addJugadorForm" class="add-jugador-form hidden">
@@ -90,6 +91,9 @@
               <div class="panel-header">
                 <h3>Emparejamiento</h3>
                 <button id="btnGenerarRonda" class="btn-primary btn-sm">Generar Ronda 1</button>
+              </div>
+              <div class="filtro-mesas-wrap">
+                <input type="text" id="filtroMesas" class="filtro-mesas-input" placeholder="🔍 Buscar jugador en mesas..." autocomplete="off" />
               </div>
               <div id="listaRondas"></div>
             </div>
@@ -312,20 +316,6 @@
     </div>
   </div>
 
-  <!-- Modal importar resultado -->
-  <div class="modal-overlay hidden" id="modalImportarRes">
-    <div class="modal">
-      <button class="modal-close" id="btnCerrarImportarRes">&times;</button>
-      <h2>📥 Importar resultado</h2>
-      <p class="modal-empate-desc">Pega el código de resultado generado por los jugadores:</p>
-      <textarea id="importarResCodigo" class="import-code-input" rows="4" placeholder="Pega el código aquí..."></textarea>
-      <div class="form-actions" style="margin-top:1rem">
-        <button class="btn-secondary" id="btnCancelarImportarRes">Cancelar</button>
-        <button class="btn-primary" id="btnConfirmarImportarRes">Importar</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

@@ -1696,6 +1696,48 @@ main {
   #hexBoard, #hexBoardDetalle { overflow-x: auto; }
 }
 
+/* ── Feature 1: Classification table fade gradient (mobile only) ── */
+@media (max-width: 768px) {
+  #tablaClasificacion {
+    position: relative;
+  }
+  #tablaClasificacion::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent 0%, var(--surface) 100%);
+  }
+}
+
+/* ── Feature 2: Collapsible players panel ── */
+.jugadores-collapsed { display: none !important; }
+
+/* ── Feature 3: Filter in emparejamiento ── */
+.filtro-mesas-wrap { padding: 0.6rem 0; }
+.filtro-mesas-input { width: 100%; padding: 0.5rem 0.75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; }
+.filtro-mesas-input:focus { outline: none; border-color: var(--catan-gold); }
+.mesa-filtrada { display: none !important; }
+.nombre-highlight { background: rgba(212,160,23,0.25); border-radius: 3px; padding: 0 2px; }
+
+/* ── Feature 5: Classification pagination ── */
+.clasif-pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem 0 0.5rem; }
+.pag-info { color: var(--text-muted); font-size: 0.85rem; min-width: 60px; text-align: center; }
+
+/* ── Feature 6: Historial accordion ── */
+.hist-acordeon { display: flex; flex-direction: column; gap: 0.75rem; }
+.hist-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.hist-card-header { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1.25rem; cursor: pointer; user-select: none; transition: background 0.15s; }
+.hist-card-header:hover { background: var(--surface2); }
+.hist-card-info { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.hist-ronda-num { font-weight: 700; font-size: 1rem; color: var(--catan-gold); }
+.hist-progress-chip { font-size: 0.78rem; color: var(--text-muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 0.15rem 0.6rem; }
+.hist-chevron { color: var(--text-muted); font-size: 0.85rem; flex-shrink: 0; }
+.hist-card-body { padding: 0 1.25rem 1.25rem; }
+
 /* ── Móvil pequeño (≤ 480px) ── */
 @media (max-width: 480px) {
   h1 { font-size: 1.25rem; }
