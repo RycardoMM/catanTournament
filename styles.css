@@ -1398,6 +1398,22 @@ main {
 }
 .import-code-input:focus { border-color: var(--catan-gold); }
 
+/* PESTAÑAS DE RONDA — organizador (panel Emparejamiento) */
+.org-rondas-tabs {
+  margin-bottom: 1rem;
+}
+.org-ronda-partial {
+  font-size: 0.75rem;
+  color: var(--catan-gold);
+  margin-left: 0.15rem;
+}
+.org-ronda-panel { }
+.ronda-panel-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5rem 0 0.75rem;
+}
+
 /* PESTAÑAS DE RONDA (dentro de la pestaña Mesas, vista invitado) */
 .pv-rondas-tabs {
   display: flex;

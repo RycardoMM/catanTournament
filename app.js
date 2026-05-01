@@ -1056,6 +1056,7 @@ document.getElementById('btnGenerarRonda').addEventListener('click', () => {
   const ronda = generarRonda(t);
   t.rondas.push(ronda);
   guardarEstado();
+  _rondasTabActiva = null; // saltar a la nueva ronda (última)
   renderRondas();
   actualizarBtnRonda();
   fbActualizarTorneo(t);
@@ -1343,6 +1344,7 @@ document.getElementById('btnConfirmarEmpate').addEventListener('click', () => {
 // --- Edición de mesas ---
 // mesaIdx === -1 significa que el jugador está en el pool sinAsignar
 const editState = { rondaIdx: null, mesaIdx: null, jugadorIdx: null };
+let _rondasTabActiva = null; // null = mostrar la última ronda
 
 function toggleEditRonda(rondaIdx) {
   editState.rondaIdx = editState.rondaIdx === rondaIdx ? null : rondaIdx;
@@ -1472,7 +1474,37 @@ function renderRondas() {
 
   const esAmistoso = t.tipo === 'amistoso';
 
-  contenedor.innerHTML = t.rondas.map((ronda, rondaIdx) => {
+  // Determinar pestaña activa:
+  // prioridad: edición > resultado > última selección manual > última ronda
+  let activeIdx;
+  if (editState.rondaIdx !== null) {
+    activeIdx = editState.rondaIdx;
+  } else if (resultState.rondaIdx !== null) {
+    activeIdx = resultState.rondaIdx;
+  } else if (_rondasTabActiva !== null && _rondasTabActiva < t.rondas.length) {
+    activeIdx = _rondasTabActiva;
+  } else {
+    activeIdx = t.rondas.length - 1;
+  }
+
+  // ── Pestañas ──────────────────────────────────────────────
+  const tabsHtml = t.rondas.map((ronda, rondaIdx) => {
+    const isActive = rondaIdx === activeIdx;
+    const numMesas = ronda.mesas.length;
+    const numConResultado = (ronda.resultadosMesas || []).filter(r => r && r.length).length;
+    const badge = numMesas > 0 && numConResultado === numMesas
+      ? ' <span class="pv-ronda-done">✓</span>'
+      : numConResultado > 0
+        ? ` <span class="org-ronda-partial">${numConResultado}/${numMesas}</span>`
+        : '';
+    return `<button class="tab-btn org-ronda-tab${isActive ? ' active' : ''}" data-ronda-idx="${rondaIdx}">
+      Ronda ${ronda.numero}${badge}
+    </button>`;
+  }).join('');
+
+  // ── Paneles ───────────────────────────────────────────────
+  const panelsHtml = t.rondas.map((ronda, rondaIdx) => {
+    const isActive = rondaIdx === activeIdx;
     const enEdicion = editState.rondaIdx === rondaIdx;
     const haySeleccion = enEdicion && editState.jugadorIdx !== null;
     ronda.sinAsignar = ronda.sinAsignar || [];
@@ -1494,18 +1526,71 @@ function renderRondas() {
       ? '👆 Ahora haz clic en otro jugador (mesa o sin asignar) para intercambiarlos.'
       : '👆 Haz clic en × para quitar a un jugador de su mesa, o selecciónalo para intercambiarlo.';
 
-    return `
-      <div class="ronda">
-        <div class="ronda-header">
-          <h4 class="ronda-titulo">Ronda ${ronda.numero}</h4>
-          <div class="ronda-header-actions">
-            <button class="btn-sm ${enEdicion ? 'btn-primary' : 'btn-outline'} btn-edit-ronda" data-ronda="${rondaIdx}">
-              ${enEdicion ? '✓ Guardar cambios' : '✏️ Editar mesas'}
+    const mesasGridHtml = ronda.mesas.map((mesa, mesaIdx) => {
+      const esSeleccionadaOrigen = haySeleccion && editState.mesaIdx === mesaIdx;
+      const resMesa = (ronda.resultadosMesas || [])[mesaIdx];
+      const enResultado = resultState.rondaIdx === rondaIdx && resultState.mesaIdx === mesaIdx;
+
+      let resultadoHtml = '';
+      if (!enEdicion) {
+        if (enResultado) {
+          resultadoHtml = `
+            <div class="resultado-form">
+              ${mesa.map((j, idx) => `
+                <div class="resultado-input-row">
+                  <span class="res-nombre">${escapeHtml(j.nombre)}</span>
+                  <input class="res-pv-input" id="pv-${rondaIdx}-${mesaIdx}-${idx}" type="number"
+                    min="0" max="30" placeholder="PV"
+                    value="${resMesa ? (resMesa.find(r => r.id === j.id)?.pv ?? '') : ''}"/>
+                </div>`).join('')}
+              <div class="resultado-form-actions">
+                <button class="btn-guardar-res btn-sm btn-primary" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">✓ Guardar</button>
+                <button class="btn-cancel-res btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">Cancelar</button>
+              </div>
+            </div>`;
+        } else if (resMesa && resMesa.length > 0) {
+          resultadoHtml = `
+            <div class="resultado-display">
+              ${resMesa.map(r => `
+                <div class="resultado-item pos${r.posicion}">
+                  <span class="res-pos">${r.posicion}º</span>
+                  <span class="res-nombre">${escapeHtml(r.nombre)}</span>
+                  <span class="res-pv">${r.pv} PV</span>
+                  ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+                </div>`).join('')}
+              <button class="btn-edit-res btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">✏️ Introducir resultado</button>
+            </div>`;
+        } else {
+          resultadoHtml = `
+            <button class="btn-resultado btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">
+              📊 Registrar resultado
+            </button>`;
+        }
+      }
+
+      return `
+        <div class="mesa-card ${enEdicion ? 'mesa-editable' : ''} ${esSeleccionadaOrigen ? 'mesa-origen' : ''}">
+          <div class="mesa-header">Mesa ${mesaIdx + 1} <span class="mesa-count">(${mesa.length})</span></div>
+          <ul class="mesa-jugadores">
+            ${mesa.map((j, jugadorIdx) => renderJugadorMesa(j, jugadorIdx, mesaIdx)).join('')}
+          </ul>
+          ${haySeleccion && !esSeleccionadaOrigen && mesa.length < t.jugadoresPorPartida ? `
+            <button class="btn-add-to-mesa" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">
+              + Añadir aquí
             </button>
-          </div>
+          ` : ''}
+          ${resultadoHtml}
+        </div>`;
+    }).join('');
+
+    return `
+      <div id="org-ronda-panel-${rondaIdx}" class="org-ronda-panel${isActive ? '' : ' hidden'}">
+        <div class="ronda-panel-header">
+          <button class="btn-sm ${enEdicion ? 'btn-primary' : 'btn-outline'} btn-edit-ronda" data-ronda="${rondaIdx}">
+            ${enEdicion ? '✓ Guardar cambios' : '✏️ Editar mesas'}
+          </button>
         </div>
         ${enEdicion ? `<p class="edit-hint">${hintText}</p>` : ''}
-
         ${enEdicion && ronda.sinAsignar.length > 0 ? `
           <div class="pool-sin-asignar">
             <div class="pool-titulo">Sin asignar (${ronda.sinAsignar.length})</div>
@@ -1522,68 +1607,27 @@ function renderRondas() {
             </ul>
           </div>
         ` : ''}
-
-        <div class="mesas-grid">
-          ${ronda.mesas.map((mesa, mesaIdx) => {
-            const esSeleccionadaOrigen = haySeleccion && editState.mesaIdx === mesaIdx;
-            const resMesa = (ronda.resultadosMesas || [])[mesaIdx];
-            const enResultado = resultState.rondaIdx === rondaIdx && resultState.mesaIdx === mesaIdx;
-
-            let resultadoHtml = '';
-            if (!enEdicion) {
-              if (enResultado) {
-                resultadoHtml = `
-                  <div class="resultado-form">
-                    ${mesa.map((j, idx) => `
-                      <div class="resultado-input-row">
-                        <span class="res-nombre">${escapeHtml(j.nombre)}</span>
-                        <input class="res-pv-input" id="pv-${rondaIdx}-${mesaIdx}-${idx}" type="number"
-                          min="0" max="30" placeholder="PV"
-                          value="${resMesa ? (resMesa.find(r => r.id === j.id)?.pv ?? '') : ''}"/>
-                      </div>`).join('')}
-                    <div class="resultado-form-actions">
-                      <button class="btn-guardar-res btn-sm btn-primary" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">✓ Guardar</button>
-                      <button class="btn-cancel-res btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">Cancelar</button>
-                    </div>
-                  </div>`;
-              } else if (resMesa && resMesa.length > 0) {
-                resultadoHtml = `
-                  <div class="resultado-display">
-                    ${resMesa.map(r => `
-                      <div class="resultado-item pos${r.posicion}">
-                        <span class="res-pos">${r.posicion}º</span>
-                        <span class="res-nombre">${escapeHtml(r.nombre)}</span>
-                        <span class="res-pv">${r.pv} PV</span>
-                        ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
-                      </div>`).join('')}
-                    <button class="btn-edit-res btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">✏️ Introducir resultado</button>
-                  </div>`;
-              } else {
-                resultadoHtml = `
-                  <button class="btn-resultado btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">
-                    📊 Registrar resultado
-                  </button>`;
-              }
-            }
-
-            return `
-            <div class="mesa-card ${enEdicion ? 'mesa-editable' : ''} ${esSeleccionadaOrigen ? 'mesa-origen' : ''}">
-              <div class="mesa-header">Mesa ${mesaIdx + 1} <span class="mesa-count">(${mesa.length})</span></div>
-              <ul class="mesa-jugadores">
-                ${mesa.map((j, jugadorIdx) => renderJugadorMesa(j, jugadorIdx, mesaIdx)).join('')}
-              </ul>
-              ${haySeleccion && !esSeleccionadaOrigen && mesa.length < t.jugadoresPorPartida ? `
-                <button class="btn-add-to-mesa" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">
-                  + Añadir aquí
-                </button>
-              ` : ''}
-              ${resultadoHtml}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
+        <div class="mesas-grid">${mesasGridHtml}</div>
+      </div>`;
   }).join('');
+
+  contenedor.innerHTML = `
+    <div class="detalle-tabs org-rondas-tabs">${tabsHtml}</div>
+    ${panelsHtml}
+  `;
+
+  // Cambio de pestaña
+  contenedor.querySelectorAll('.org-ronda-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.rondaIdx);
+      _rondasTabActiva = idx;
+      contenedor.querySelectorAll('.org-ronda-tab').forEach(b => b.classList.remove('active'));
+      contenedor.querySelectorAll('.org-ronda-panel').forEach(p => p.classList.add('hidden'));
+      btn.classList.add('active');
+      const panel = document.getElementById(`org-ronda-panel-${idx}`);
+      if (panel) panel.classList.remove('hidden');
+    });
+  });
 
   contenedor.querySelectorAll('.btn-edit-ronda').forEach(btn => {
     btn.addEventListener('click', () => toggleEditRonda(parseInt(btn.dataset.ronda)));
@@ -1629,7 +1673,6 @@ function renderRondas() {
       renderRondas();
     });
   });
-
 }
 
 // --- Filter mesas ---
