@@ -1969,11 +1969,22 @@ document.getElementById('btnCerrarShareRonda').addEventListener('click', () => {
 });
 document.getElementById('btnCopyShareUrl').addEventListener('click', () => {
   const input = document.getElementById('shareUrlInput');
-  navigator.clipboard.writeText(input.value).then(() => {
+  const mostrarOk = () => {
     const msg = document.getElementById('shareCopiedMsg');
     msg.classList.remove('hidden');
     setTimeout(() => msg.classList.add('hidden'), 2500);
-  });
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(input.value).then(mostrarOk).catch(() => {
+      input.select();
+      document.execCommand('copy');
+      mostrarOk();
+    });
+  } else {
+    input.select();
+    document.execCommand('copy');
+    mostrarOk();
+  }
 });
 document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   const t = state.torneoActivo;
@@ -2221,11 +2232,15 @@ function renderPlayerView(shareData) {
   // Copiar código (fallback sin Firebase)
   contenedor.querySelectorAll('.btn-pv-copy').forEach(btn => {
     btn.addEventListener('click', () => {
-      const text = document.getElementById(`pvcode-${btn.dataset.sfx}`).querySelector('.player-code-text').value;
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = '✓ Copiado';
-        setTimeout(() => btn.textContent = 'Copiar', 2500);
-      });
+      const textarea = document.getElementById(`pvcode-${btn.dataset.sfx}`).querySelector('.player-code-text');
+      const ok = () => { btn.textContent = '✓ Copiado'; setTimeout(() => btn.textContent = 'Copiar', 2500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textarea.value).then(ok).catch(() => { textarea.select(); document.execCommand('copy'); ok(); });
+      } else {
+        textarea.select();
+        document.execCommand('copy');
+        ok();
+      }
     });
   });
 }
