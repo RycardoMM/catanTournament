@@ -56,7 +56,8 @@ function fbActualizarTorneo(t) {
     torneoNombre: t.nombre,
     tipo: t.tipo || 'oficial',
     numRondas: t.numRondas || null,
-    desempate: t.desempate || [],
+    desempate: t.metosDesempate || t.desempate || [],
+    jugadores: (t.jugadores || []).map(j => ({ id: j.id, nombre: j.nombre })),
     rondas: t.rondas.map(r => ({
       numero: r.numero,
       sistema: r.sistema,
@@ -703,6 +704,10 @@ function eliminarTorneo(id) {
       }
       guardarEstado();
       renderTorneos();
+      if (_db) {
+        _db.ref(`catan_tournaments/${id}`).remove();
+        _db.ref(`catan_results/${id}`).remove();
+      }
     }
   );
 }
@@ -2007,26 +2012,32 @@ document.getElementById('btnCopyShareUrl').addEventListener('click', () => {
 document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   const t = state.torneoActivo;
   if (!t) return;
-  const payload = {
-    torneoId: t.id,
-    torneoNombre: t.nombre,
-    tipo: t.tipo || 'oficial',
-    numRondas: t.numRondas || null,
-    desempate: t.desempate || [],
-    jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
-    rondas: t.rondas.map(r => ({
-      numero: r.numero,
-      sistema: r.sistema,
-      mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre }))),
-      resultadosMesas: r.resultadosMesas || []
-    }))
-  };
-  const hash = '#share=' + _b64Encode(JSON.stringify(payload));
-  const url = window.location.href.split('#')[0] + hash;
+  let url;
+  if (FIREBASE_ENABLED) {
+    // URL corta: siempre carga datos frescos desde Firebase
+    fbActualizarTorneo(t);
+    url = window.location.href.split('#')[0] + '#tournament=' + t.id;
+  } else {
+    // Fallback sin Firebase: snapshot estático en la URL
+    const payload = {
+      torneoId: t.id,
+      torneoNombre: t.nombre,
+      tipo: t.tipo || 'oficial',
+      numRondas: t.numRondas || null,
+      desempate: t.metosDesempate || t.desempate || [],
+      jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
+      rondas: t.rondas.map(r => ({
+        numero: r.numero,
+        sistema: r.sistema,
+        mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre }))),
+        resultadosMesas: r.resultadosMesas || []
+      }))
+    };
+    url = window.location.href.split('#')[0] + '#share=' + _b64Encode(JSON.stringify(payload));
+  }
   document.getElementById('shareUrlInput').value = url;
   document.getElementById('shareCopiedMsg').classList.add('hidden');
   document.getElementById('modalShareRonda').classList.remove('hidden');
-  fbActualizarTorneo(t); // subir estructura inicial a Firebase
 });
 
 
@@ -2365,8 +2376,80 @@ function renderPlayerView(shareData) {
   });
 }
 
+function cargarTorneoDesdeFirebase(torneoId) {
+  mostrarVistaJugador();
+  const contenedor = document.getElementById('playerViewContent');
+  contenedor.innerHTML = `
+    <div class="player-header">
+      <div class="player-torneo-nombre">⏳ Cargando torneo...</div>
+    </div>`;
+
+  if (!_db) {
+    contenedor.innerHTML = `
+      <div class="player-header"><div class="player-torneo-nombre">⚠️ Sin conexión</div></div>
+      <div class="panel" style="text-align:center;padding:2rem">
+        <p>Firebase no disponible. Este enlace requiere conexión.</p>
+        <button class="btn-primary" style="margin-top:1.5rem"
+          onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
+      </div>`;
+    return;
+  }
+
+  Promise.all([
+    _db.ref(`catan_tournaments/${torneoId}`).once('value'),
+    _db.ref(`catan_results/${torneoId}`).once('value')
+  ]).then(([torneoSnap, resultsSnap]) => {
+    const fbT = torneoSnap.val();
+    if (!fbT) {
+      contenedor.innerHTML = `
+        <div class="player-header"><div class="player-torneo-nombre">⚠️ Torneo no encontrado</div></div>
+        <div class="panel" style="text-align:center;padding:2rem">
+          <p>Este torneo no existe o fue eliminado.</p>
+          <button class="btn-primary" style="margin-top:1.5rem"
+            onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
+        </div>`;
+      return;
+    }
+    const results = resultsSnap.val() || {};
+    const rondasConResultados = (fbT.rondas || []).map(r => {
+      const resMesas = [];
+      (r.mesas || []).forEach((_, mi) => {
+        const key = `${r.numero}_${mi}`;
+        if (results[key]) resMesas[mi] = results[key];
+      });
+      return { ...r, resultadosMesas: resMesas };
+    });
+    const shareData = {
+      torneoId,
+      torneoNombre: fbT.torneoNombre,
+      tipo: fbT.tipo || 'oficial',
+      numRondas: fbT.numRondas || null,
+      desempate: fbT.desempate || [],
+      jugadores: fbT.jugadores || [],
+      rondas: rondasConResultados
+    };
+    renderPlayerView(shareData);
+  }).catch(e => {
+    contenedor.innerHTML = `
+      <div class="player-header"><div class="player-torneo-nombre">⚠️ Error al cargar</div></div>
+      <div class="panel" style="text-align:center;padding:2rem">
+        <p>Error al cargar el torneo.</p>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem">${e.message}</p>
+        <button class="btn-primary" style="margin-top:1.5rem"
+          onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
+      </div>`;
+  });
+}
+
 function checkShareMode() {
   const hash = window.location.hash;
+  // URL corta con Firebase: #tournament=<id>
+  if (hash.startsWith('#tournament=')) {
+    const torneoId = hash.slice(12);
+    if (torneoId) cargarTorneoDesdeFirebase(torneoId);
+    return true;
+  }
+  // URL clásica con snapshot: #share=<base64>
   if (!hash.startsWith('#share=')) return false;
   try {
     const data = JSON.parse(_b64Decode(hash.slice(7)));
