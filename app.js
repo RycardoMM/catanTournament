@@ -2055,12 +2055,14 @@ function renderPlayerView(shareData) {
   const rondaActual = shareData.rondas.length;
   const totalRondas = shareData.numRondas || '?';
 
-  // --- Tab: Mesas y resultados (todas las rondas, más reciente primero) ---
+  // --- Pestañas por ronda + paneles de mesas ---
   const rondaActualNum = shareData.rondas.reduce((max, r) => Math.max(max, Number(r.numero)), 0);
-  const mesasHtml = shareData.rondas.slice().reverse().map(ronda => {
+
+  // Genera el HTML de mesas para una ronda dada
+  function _mesasDeRonda(ronda) {
     const numRonda = Number(ronda.numero);
     const esRondaPasada = numRonda < rondaActualNum;
-    const mesasGrid = ronda.mesas.map((mesa, mi) => {
+    return ronda.mesas.map((mesa, mi) => {
       const res = (ronda.resultadosMesas || [])[mi];
       const sfx = `${ronda.numero}_${mi}`;
       if (res && res.length) {
@@ -2078,7 +2080,6 @@ function renderPlayerView(shareData) {
             </div>
           </div>`;
       }
-      // Ronda anterior (n-1, n-2…) sin resultado → siempre solo lectura
       if (esRondaPasada) {
         return `
           <div class="mesa-card">
@@ -2121,12 +2122,22 @@ function renderPlayerView(shareData) {
           </div>` : ''}
         </div>`;
     }).join('');
+  }
 
-    return `
-      <div class="panel" style="margin-bottom:1.25rem">
-        <div class="panel-header"><h3>Ronda ${ronda.numero}</h3></div>
-        <div class="mesas-grid">${mesasGrid}</div>
-      </div>`;
+  const rondasTabsHtml = shareData.rondas.map(ronda => {
+    const isActive = Number(ronda.numero) === rondaActualNum;
+    const tieneResultados = (ronda.resultadosMesas || []).some(m => m && m.length);
+    return `<button class="tab-btn pv-ronda-tab${isActive ? ' active' : ''}"
+      data-pv-ronda="${ronda.numero}">
+      Ronda ${ronda.numero}${tieneResultados ? ' <span class="pv-ronda-done">✓</span>' : ''}
+    </button>`;
+  }).join('');
+
+  const rondasPanelsHtml = shareData.rondas.map(ronda => {
+    const isActive = Number(ronda.numero) === rondaActualNum;
+    return `<div id="pv-ronda-panel-${ronda.numero}" class="pv-ronda-panel${isActive ? '' : ' hidden'}">
+      <div class="mesas-grid">${_mesasDeRonda(ronda)}</div>
+    </div>`;
   }).join('');
 
   // --- Tab: Historial (solo rondas con resultados, acordeón, solo lectura) ---
@@ -2177,21 +2188,23 @@ function renderPlayerView(shareData) {
       <div class="player-ronda-badge">Ronda ${rondaActual} de ${totalRondas}</div>
     </div>
     <div class="detalle-tabs">
-      <button class="tab-btn${hayHistorial ? '' : ' active'}" data-pv-tab="mesas">🎯 Mesas y resultados</button>
-      ${hayHistorial ? '<button class="tab-btn active" data-pv-tab="historial">📜 Historial</button>' : ''}
+      <button class="tab-btn active" data-pv-tab="mesas">🎯 Mesas</button>
+      <button class="tab-btn" data-pv-tab="historial">📜 Historial</button>
     </div>
-    <div id="pvTabMesas" class="tab-content${hayHistorial ? ' hidden' : ''}">
-      ${mesasHtml || '<p class="empty-state-tab">Sin rondas generadas aún.</p>'}
+    <div id="pvTabMesas" class="tab-content">
+      ${shareData.rondas.length === 0
+        ? '<p class="empty-state-tab">Sin rondas generadas aún.</p>'
+        : `<div class="detalle-tabs pv-rondas-tabs">${rondasTabsHtml}</div>${rondasPanelsHtml}`
+      }
     </div>
-    ${hayHistorial ? `
-    <div id="pvTabHistorial" class="tab-content">
+    <div id="pvTabHistorial" class="tab-content hidden">
       <div class="panel">
         ${historialHtml}
       </div>
-    </div>` : ''}
+    </div>
   `;
 
-  // Tabs
+  // Tabs principales (Mesas / Historial)
   contenedor.querySelectorAll('[data-pv-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
       contenedor.querySelectorAll('[data-pv-tab]').forEach(b => b.classList.remove('active'));
@@ -2200,6 +2213,17 @@ function renderPlayerView(shareData) {
       const tabId = btn.dataset.pvTab === 'historial' ? 'pvTabHistorial' : 'pvTabMesas';
       const tabEl = document.getElementById(tabId);
       if (tabEl) tabEl.classList.remove('hidden');
+    });
+  });
+
+  // Pestañas de ronda (dentro de la pestaña Mesas)
+  contenedor.querySelectorAll('.pv-ronda-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      contenedor.querySelectorAll('.pv-ronda-tab').forEach(b => b.classList.remove('active'));
+      contenedor.querySelectorAll('.pv-ronda-panel').forEach(p => p.classList.add('hidden'));
+      btn.classList.add('active');
+      const panel = document.getElementById(`pv-ronda-panel-${btn.dataset.pvRonda}`);
+      if (panel) panel.classList.remove('hidden');
     });
   });
 

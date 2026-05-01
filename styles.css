@@ -1398,6 +1398,25 @@ main {
 }
 .import-code-input:focus { border-color: var(--catan-gold); }
 
+/* PESTAÑAS DE RONDA (dentro de la pestaña Mesas, vista invitado) */
+.pv-rondas-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 1rem;
+}
+.pv-rondas-tabs .tab-btn {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.9rem;
+}
+.pv-ronda-done {
+  color: var(--catan-green);
+  font-size: 0.8rem;
+}
+.pv-ronda-panel { padding: 0 0.5rem; }
+
 /* BANNER NUEVA RONDA (vista invitado) */
 .pv-new-round-banner {
   display: flex;
