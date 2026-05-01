@@ -2056,7 +2056,9 @@ function renderPlayerView(shareData) {
   const totalRondas = shareData.numRondas || '?';
 
   // --- Tab: Mesas y resultados (todas las rondas, más reciente primero) ---
+  const rondaActualNum = Math.max(...shareData.rondas.map(r => r.numero));
   const mesasHtml = shareData.rondas.slice().reverse().map(ronda => {
+    const esRondaActual = ronda.numero === rondaActualNum;
     const mesasGrid = ronda.mesas.map((mesa, mi) => {
       const res = (ronda.resultadosMesas || [])[mi];
       const sfx = `${ronda.numero}_${mi}`;
@@ -2073,6 +2075,17 @@ function renderPlayerView(shareData) {
                   ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
                 </div>`).join('')}
             </div>
+          </div>`;
+      }
+      // Ronda pasada sin resultado → solo lectura, no editable
+      if (!esRondaActual) {
+        return `
+          <div class="mesa-card">
+            <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
+            <ul class="mesa-jugadores">
+              ${mesa.map(j => `<li><span class="jugador-nombre">${escapeHtml(j.nombre)}</span></li>`).join('')}
+            </ul>
+            <p class="empty-state" style="padding:0.5rem 1rem;margin:0">Resultado no registrado</p>
           </div>`;
       }
       return `
@@ -2218,7 +2231,8 @@ function renderPlayerView(shareData) {
         <button class="btn-sm btn-primary btn-pv-reload">Ver ahora</button>`;
       banner.querySelector('.btn-pv-reload').addEventListener('click', () => {
         _guestTorneoRef.off('value'); _guestTorneoRef = null;
-        renderPlayerView(nuevaData);
+        // Recargar desde Firebase para obtener resultados reales de rondas anteriores
+        cargarTorneoDesdeFirebase(shareData.torneoId);
       });
     });
   }
