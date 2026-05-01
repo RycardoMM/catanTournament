@@ -1163,9 +1163,11 @@ function actualizarBtnRonda() {
   }
 
   const sufijo = esSuizo ? ' 🏅' : '';
-  const label = total
-    ? `Generar Ronda ${jugadas + 1}/${total}${sufijo}`
-    : `Generar Ronda ${jugadas + 1}${sufijo}`;
+  const label = jugadas === 0
+    ? `▶ Iniciar torneo`
+    : total
+      ? `Generar Ronda ${jugadas + 1}/${total}${sufijo}`
+      : `Generar Ronda ${jugadas + 1}${sufijo}`;
 
   if (!rondaActualCompleta(t)) {
     const ultima = t.rondas[t.rondas.length - 1];
