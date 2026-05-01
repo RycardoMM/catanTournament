@@ -1059,14 +1059,8 @@ function renderJugadores() {
   });
 }
 
-// --- Iniciar torneo ---
-document.getElementById('btnIniciarTorneo').addEventListener('click', () => {
-  const t = state.torneoActivo;
-  if (!t) return;
-  t.iniciado = true;
-  guardarEstado();
-  actualizarBtnRonda();
-});
+// --- Ver clasificación (botón final de torneo) ---
+document.getElementById('btnVerClasificacion').addEventListener('click', () => mostrarTab('clasificacion'));
 
 // --- Emparejamiento ---
 document.getElementById('btnGenerarRonda').addEventListener('click', () => {
@@ -1125,7 +1119,7 @@ function actualizarBtnRonda() {
   const t = state.torneoActivo;
   if (!t) return;
   const btn = document.getElementById('btnGenerarRonda');
-  const btnIniciar = document.getElementById('btnIniciarTorneo');
+  const btnVer = document.getElementById('btnVerClasificacion');
   const jugadas = t.rondas.length;
   const total = t.numRondas || null;
   const esSuizo = t.formato === 'suizo' && jugadas > 0;
@@ -1145,13 +1139,22 @@ function actualizarBtnRonda() {
     btn.title = '';
   };
 
-  // Mostrar/ocultar botón "Iniciar torneo"
-  if (btnIniciar) btnIniciar.classList.toggle('hidden', !!t.iniciado);
-
-  // Bloquear generar ronda hasta que el torneo esté iniciado
-  if (!t.iniciado) {
-    setDisabled(`Generar Ronda 1/${total || '?'}`, 'Primero debes iniciar el torneo');
+  // Torneo finalizado: ocultar "Generar ronda", mostrar "Ver clasificación"
+  if (torneoFinalizado(t)) {
+    btn.classList.add('hidden');
+    if (btnVer) btnVer.classList.remove('hidden');
     return;
+  }
+  btn.classList.remove('hidden');
+  if (btnVer) btnVer.classList.add('hidden');
+
+  // Primera ronda: botón verde "▶ Generar Ronda 1"
+  if (jugadas === 0) {
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-primary');
+  } else {
+    btn.classList.remove('btn-success');
+    btn.classList.add('btn-primary');
   }
 
   if (total && jugadas >= total) {

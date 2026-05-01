@@ -194,6 +194,21 @@ main {
 .btn-primary:hover { background: #a93226; transform: translateY(-1px); }
 .btn-primary:active { transform: translateY(0); }
 
+.btn-success {
+  background: #219150;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-success:hover { background: #1a7a42; transform: translateY(-1px); }
+.btn-success:active { transform: translateY(0); }
+.btn-success:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
 .btn-secondary {
   background: transparent;
   color: var(--text-muted);
