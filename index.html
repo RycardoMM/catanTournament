@@ -291,30 +291,17 @@
     </div>
   </div>
 
-  <!-- Modal compartir ronda -->
+  <!-- Modal compartir torneo -->
   <div class="modal-overlay hidden" id="modalShareRonda">
     <div class="modal share-modal">
       <button class="modal-close" id="btnCerrarShareRonda">&times;</button>
-      <h2>🔗 Compartir ronda</h2>
-
-      <div class="share-section">
-        <p class="share-section-title">📄 Formulario descargable <span class="share-badge-rec">Recomendado</span></p>
-        <p class="share-section-desc">Descarga un formulario HTML y compártelo por WhatsApp, Telegram o email. Los jugadores lo abren en su navegador sin necesidad de red.</p>
-        <button id="btnDescargarFormulario" class="btn-primary share-download-btn">⬇ Descargar formulario</button>
-        <p id="shareDownloadedMsg" class="share-copied hidden">✓ ¡Formulario descargado!</p>
+      <h2>🔗 Compartir torneo</h2>
+      <p class="share-section-desc">Comparte este enlace con los jugadores para que puedan ver la clasificación e introducir resultados.</p>
+      <div class="share-url-wrap">
+        <input type="text" id="shareUrlInput" readonly />
+        <button id="btnCopyShareUrl" class="btn-sm btn-outline">📋 Copiar</button>
       </div>
-
-      <div class="share-divider"><span>o bien</span></div>
-
-      <div class="share-section">
-        <p class="share-section-title">🌐 Enlace directo <span class="share-badge-warn">Solo red local</span></p>
-        <p class="share-section-desc">Funciona únicamente si los jugadores están conectados a la misma red Wi-Fi que este equipo.</p>
-        <div class="share-url-wrap">
-          <input type="text" id="shareUrlInput" readonly />
-          <button id="btnCopyShareUrl" class="btn-sm btn-outline">📋 Copiar</button>
-        </div>
-        <p id="shareCopiedMsg" class="share-copied hidden">✓ ¡Copiado!</p>
-      </div>
+      <p id="shareCopiedMsg" class="share-copied hidden">✓ ¡Copiado!</p>
     </div>
   </div>
 

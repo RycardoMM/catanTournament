@@ -1585,7 +1585,6 @@ function generarLinkRonda(rondaIdx) {
   const url = window.location.href.split('#')[0] + hash;
   document.getElementById('shareUrlInput').value = url;
   document.getElementById('shareCopiedMsg').classList.add('hidden');
-  document.getElementById('shareDownloadedMsg').classList.add('hidden');
   document.getElementById('modalShareRonda').classList.remove('hidden');
 }
 
@@ -1880,21 +1879,6 @@ document.getElementById('btnCopyShareUrl').addEventListener('click', () => {
     setTimeout(() => msg.classList.add('hidden'), 2500);
   });
 });
-document.getElementById('btnDescargarFormulario').addEventListener('click', () => {
-  const t = state.torneoActivo;
-  if (!t) return;
-  const html = generarHTMLTorneo(t);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `catan-${t.nombre.replace(/\s+/g, '-')}.html`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  const msg = document.getElementById('shareDownloadedMsg');
-  msg.classList.remove('hidden');
-  setTimeout(() => msg.classList.add('hidden'), 3000);
-});
-
 document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   const t = state.torneoActivo;
   if (!t) return;
@@ -1911,7 +1895,6 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   const url = window.location.href.split('#')[0] + hash;
   document.getElementById('shareUrlInput').value = url;
   document.getElementById('shareCopiedMsg').classList.add('hidden');
-  document.getElementById('shareDownloadedMsg').classList.add('hidden');
   document.getElementById('modalShareRonda').classList.remove('hidden');
 });
 
