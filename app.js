@@ -2133,13 +2133,13 @@ function renderPlayerView(shareData) {
     </div>
     <div class="detalle-tabs">
       <button class="tab-btn${hayHistorial ? '' : ' active'}" data-pv-tab="mesas">🎯 Mesas y resultados</button>
-      ${hayHistorial ? '<button class="tab-btn" data-pv-tab="historial">📜 Historial</button>' : ''}
+      ${hayHistorial ? '<button class="tab-btn active" data-pv-tab="historial">📜 Historial</button>' : ''}
     </div>
     <div id="pvTabMesas" class="tab-content${hayHistorial ? ' hidden' : ''}">
       ${mesasHtml || '<p class="empty-state-tab">Sin rondas generadas aún.</p>'}
     </div>
     ${hayHistorial ? `
-    <div id="pvTabHistorial" class="tab-content hidden">
+    <div id="pvTabHistorial" class="tab-content">
       <div class="panel">
         ${historialHtml}
       </div>
