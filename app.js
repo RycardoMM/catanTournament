@@ -1919,29 +1919,7 @@ function renderPlayerView(shareData) {
   const rondaActual = shareData.rondas.length;
   const totalRondas = shareData.numRondas || '?';
 
-  // Calcular clasificación
-  const stats = {};
-  shareData.jugadores.forEach(j => {
-    stats[j.id] = { nombre: j.nombre, pv: 0, torneoPoints: 0, primerPuesto: 0 };
-  });
-  shareData.rondas.forEach(ronda => {
-    (ronda.resultadosMesas || []).forEach(res => {
-      if (!res) return;
-      res.forEach(r => {
-        if (!stats[r.id]) return;
-        stats[r.id].pv += r.pv || 0;
-        if (!esAmistoso) stats[r.id].torneoPoints += TORNEO_PUNTOS[r.posicion - 1] || 0;
-        if (r.posicion === 1) stats[r.id].primerPuesto++;
-      });
-    });
-  });
-  const ordenados = Object.values(stats).sort((a, b) =>
-    esAmistoso
-      ? (b.pv - a.pv || b.primerPuesto - a.primerPuesto)
-      : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto)
-  );
-
-  // Construir HTML de mesas por ronda (más reciente primero)
+  // --- Tab: Mesas y resultados (todas las rondas, más reciente primero) ---
   const mesasHtml = shareData.rondas.slice().reverse().map(ronda => {
     const mesasGrid = ronda.mesas.map((mesa, mi) => {
       const res = (ronda.resultadosMesas || [])[mi];
@@ -1996,33 +1974,55 @@ function renderPlayerView(shareData) {
       </div>`;
   }).join('');
 
+  // --- Tab: Historial (solo rondas con resultados, acordeón, solo lectura) ---
+  const rondasConResultados = shareData.rondas.filter(r =>
+    (r.resultadosMesas || []).some(m => m && m.length)
+  );
+  const historialHtml = rondasConResultados.length === 0
+    ? '<p class="empty-state">Sin resultados registrados aún.</p>'
+    : rondasConResultados.slice().reverse().map((ronda, idx) => {
+        const mesasBody = ronda.mesas.map((mesa, mi) => {
+          const res = (ronda.resultadosMesas || [])[mi];
+          if (!res || !res.length) return '';
+          return `
+            <div class="mesa-card">
+              <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
+              <div class="resultado-display">
+                ${res.map(r => `
+                  <div class="resultado-item pos${r.posicion}">
+                    <span class="res-pos">${r.posicion}º</span>
+                    <span class="res-nombre">${escapeHtml(r.nombre)}</span>
+                    <span class="res-pv">${r.pv} PV</span>
+                    ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+                  </div>`).join('')}
+              </div>
+            </div>`;
+        }).join('');
+        const abierta = idx === 0; // la más reciente abierta por defecto
+        return `
+          <div class="hist-card">
+            <div class="hist-card-header pv-hist-toggle" data-pvhist="${ronda.numero}">
+              <span class="hist-ronda-num">Ronda ${ronda.numero}</span>
+              <span class="hist-chevron">${abierta ? '▼' : '▶'}</span>
+            </div>
+            <div class="hist-card-body mesas-grid${abierta ? '' : ' hidden'}" id="pvhist-${ronda.numero}">
+              ${mesasBody}
+            </div>
+          </div>`;
+      }).join('');
+
   contenedor.innerHTML = `
     <div class="player-header">
       <div class="player-torneo-nombre">🏆 ${escapeHtml(shareData.torneoNombre)}</div>
       <div class="player-ronda-badge">Ronda ${rondaActual} de ${totalRondas}</div>
     </div>
     <div class="detalle-tabs">
-      <button class="tab-btn active" data-pv-tab="clasif">🏆 Clasificación</button>
+      <button class="tab-btn active" data-pv-tab="historial">📜 Historial</button>
       <button class="tab-btn" data-pv-tab="mesas">🎯 Mesas y resultados</button>
     </div>
-    <div id="pvTabClasif" class="tab-content">
+    <div id="pvTabHistorial" class="tab-content">
       <div class="panel">
-        <table class="clasificacion-table">
-          <thead><tr>
-            <th>#</th><th>Jugador</th><th>PV</th><th>1er Puesto</th>
-            ${!esAmistoso ? '<th>Pts Torneo</th>' : ''}
-          </tr></thead>
-          <tbody>
-            ${ordenados.map((j, i) => `
-              <tr>
-                <td class="pos-num ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</td>
-                <td>${escapeHtml(j.nombre)}</td>
-                <td>${j.pv}</td>
-                <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
-                ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>` : ''}
-              </tr>`).join('')}
-          </tbody>
-        </table>
+        ${historialHtml}
       </div>
     </div>
     <div id="pvTabMesas" class="tab-content hidden">
@@ -2035,7 +2035,17 @@ function renderPlayerView(shareData) {
       contenedor.querySelectorAll('[data-pv-tab]').forEach(b => b.classList.remove('active'));
       contenedor.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
       btn.classList.add('active');
-      document.getElementById(btn.dataset.pvTab === 'clasif' ? 'pvTabClasif' : 'pvTabMesas').classList.remove('hidden');
+      document.getElementById(btn.dataset.pvTab === 'historial' ? 'pvTabHistorial' : 'pvTabMesas').classList.remove('hidden');
+    });
+  });
+
+  // Historial acordeón
+  contenedor.querySelectorAll('.pv-hist-toggle').forEach(header => {
+    header.addEventListener('click', () => {
+      const rondaNum = header.dataset.pvhist;
+      const body = document.getElementById(`pvhist-${rondaNum}`);
+      const isHidden = body.classList.toggle('hidden');
+      header.querySelector('.hist-chevron').textContent = isHidden ? '▶' : '▼';
     });
   });
 
