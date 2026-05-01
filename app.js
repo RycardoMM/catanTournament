@@ -7,13 +7,13 @@
 // 3. Ve a Realtime Database → Crear base de datos → Modo prueba
 // 4. (Opcional) En Rules, pon ".read": true, ".write": true bajo "catan_results"
 const FIREBASE_CONFIG = {
-  apiKey:            "",
-  authDomain:        "",
-  databaseURL:       "",   // ← obligatorio: "https://TU-APP-default-rtdb.firebaseio.com"
-  projectId:         "",
-  storageBucket:     "",
-  messagingSenderId: "",
-  appId:             ""
+  apiKey:            "AIzaSyAdexIBsjz_3YV8rF5GvhMzeClwvybxeTc",
+  authDomain:        "catantournament-720b7.firebaseapp.com",
+  databaseURL:       "https://catantournament-720b7-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "catantournament-720b7",
+  storageBucket:     "catantournament-720b7.firebasestorage.app",
+  messagingSenderId: "254641903048",
+  appId:             "1:254641903048:web:35ab1584f364efcfe81cfd"
 };
 
 const FIREBASE_ENABLED = typeof firebase !== 'undefined' && !!FIREBASE_CONFIG.databaseURL;
