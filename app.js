@@ -1060,7 +1060,7 @@ function renderJugadores() {
 }
 
 // --- Ver clasificación (botón final de torneo) ---
-document.getElementById('btnVerClasificacion').addEventListener('click', () => mostrarTab('clasificacion'));
+document.getElementById('btnVerClasificacion').addEventListener('click', () => cambiarTab('clasificacion'));
 
 // --- Emparejamiento ---
 document.getElementById('btnGenerarRonda').addEventListener('click', () => {
@@ -2444,6 +2444,13 @@ function renderPlayerView(shareData) {
           </div>`).join('')}
       </div>
       <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
+    // Desvanecer el mensaje de confirmación tras 3 segundos
+    const msg = card.querySelector('.pv-submit-ok');
+    if (msg) setTimeout(() => {
+      msg.style.transition = 'opacity 0.6s';
+      msg.style.opacity = '0';
+      setTimeout(() => msg.remove(), 650);
+    }, 3000);
   };
 
   const pvEnviar = async (card, datos, torneoId, rondaNum, mi, mesaLen) => {
