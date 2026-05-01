@@ -2011,23 +2011,27 @@ function renderPlayerView(shareData) {
           </div>`;
       }).join('');
 
+  const hayHistorial = rondasConResultados.length > 0;
+
   contenedor.innerHTML = `
     <div class="player-header">
       <div class="player-torneo-nombre">🏆 ${escapeHtml(shareData.torneoNombre)}</div>
       <div class="player-ronda-badge">Ronda ${rondaActual} de ${totalRondas}</div>
     </div>
     <div class="detalle-tabs">
-      <button class="tab-btn active" data-pv-tab="historial">📜 Historial</button>
-      <button class="tab-btn" data-pv-tab="mesas">🎯 Mesas y resultados</button>
+      <button class="tab-btn${hayHistorial ? '' : ' active'}" data-pv-tab="mesas">🎯 Mesas y resultados</button>
+      ${hayHistorial ? '<button class="tab-btn" data-pv-tab="historial">📜 Historial</button>' : ''}
     </div>
-    <div id="pvTabHistorial" class="tab-content">
+    <div id="pvTabMesas" class="tab-content${hayHistorial ? ' hidden' : ''}">
+      ${mesasHtml || '<p class="empty-state-tab">Sin rondas generadas aún.</p>'}
+    </div>
+    ${hayHistorial ? `
+    <div id="pvTabHistorial" class="tab-content hidden">
       <div class="panel">
         ${historialHtml}
       </div>
-    </div>
-    <div id="pvTabMesas" class="tab-content hidden">
-      ${mesasHtml || '<p class="empty-state-tab">Sin rondas generadas aún.</p>'}
-    </div>`;
+    </div>` : ''}
+  `;
 
   // Tabs
   contenedor.querySelectorAll('[data-pv-tab]').forEach(btn => {
@@ -2035,7 +2039,9 @@ function renderPlayerView(shareData) {
       contenedor.querySelectorAll('[data-pv-tab]').forEach(b => b.classList.remove('active'));
       contenedor.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
       btn.classList.add('active');
-      document.getElementById(btn.dataset.pvTab === 'historial' ? 'pvTabHistorial' : 'pvTabMesas').classList.remove('hidden');
+      const tabId = btn.dataset.pvTab === 'historial' ? 'pvTabHistorial' : 'pvTabMesas';
+      const tabEl = document.getElementById(tabId);
+      if (tabEl) tabEl.classList.remove('hidden');
     });
   });
 
