@@ -485,6 +485,7 @@ document.getElementById('formTorneo').addEventListener('submit', (e) => {
   const jugadoresPorPartida = parseInt(document.getElementById('jugadoresPorPartida').value);
   const numRondas = parseInt(document.getElementById('numRondas').value);
   const formato = document.getElementById('formatoTorneo').value;
+  const tipo = document.getElementById('tipoTorneo').value;
 
   if (!nombre) return resaltarError('nombreTorneo');
   if (!numJugadores || numJugadores < 4) return resaltarError('numJugadores');
@@ -501,6 +502,7 @@ document.getElementById('formTorneo').addEventListener('submit', (e) => {
     jugadoresPorPartida,
     numRondas,
     formato,
+    tipo,
     metosDesempate,
     pinArbitro: pinArbitro || null,
     fechaCreacion: new Date().toLocaleDateString('es-ES'),
@@ -535,7 +537,7 @@ function renderTorneos() {
       <button class="btn-delete-torneo" data-id="${t.id}" title="Eliminar torneo">🗑</button>
       <h4>${escapeHtml(t.nombre)}</h4>
       <p class="meta">👥 ${t.numJugadores} jugadores · ${t.jugadoresPorPartida} por partida</p>
-      <p class="meta">🎲 ${formatFormato(t.formato)}</p>
+      <p class="meta">🎲 ${formatFormato(t.formato)} · ${t.tipo === 'amistoso' ? '🤝 Amistoso' : '🏅 Oficial'}</p>
       <p class="meta">📅 ${t.fechaCreacion}</p>
       <p class="meta">🏆 Desempate: ${t.metosDesempate.map(formatDesempate).join(' › ')}</p>
       <div class="card-footer">
@@ -618,6 +620,7 @@ function cambiarTab(tab) {
 
 function calcularStats(t, rondas) {
   rondas = rondas || t.rondas;
+  const esAmistoso = t.tipo === 'amistoso';
   const stats = {};
   t.jugadores.forEach(j => {
     stats[j.id] = { nombre: j.nombre, pv: 0, primerPuesto: 0, torneoPoints: 0, desempateVictorias: 0 };
@@ -629,7 +632,7 @@ function calcularStats(t, rondas) {
         if (!stats[r.id]) return;
         stats[r.id].pv += r.pv || 0;
         if (r.posicion === 1) stats[r.id].primerPuesto++;
-        stats[r.id].torneoPoints += TORNEO_PUNTOS[r.posicion - 1] || 0;
+        if (!esAmistoso) stats[r.id].torneoPoints += TORNEO_PUNTOS[r.posicion - 1] || 0;
         if (r.desempateGanado) stats[r.id].desempateVictorias++;
       });
     });
@@ -686,11 +689,12 @@ function renderClasificacion(hastaRondaIdx, pagina) {
   const rondasFiltradas = rondasConRes.slice(0, idxFin + 1);
   const stats = calcularStats(t, rondasFiltradas);
 
+  const esAmistoso = t.tipo === 'amistoso';
+
   const ordenados = Object.values(stats).sort((a, b) =>
-    b.torneoPoints - a.torneoPoints ||
-    b.pv - a.pv ||
-    b.primerPuesto - a.primerPuesto ||
-    b.desempateVictorias - a.desempateVictorias
+    esAmistoso
+      ? (b.pv - a.pv || b.primerPuesto - a.primerPuesto || b.desempateVictorias - a.desempateVictorias)
+      : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto || b.desempateVictorias - a.desempateVictorias)
   );
 
   const totalPags = Math.ceil(ordenados.length / 10);
@@ -706,7 +710,7 @@ function renderClasificacion(hastaRondaIdx, pagina) {
           <th title="Suma de puntos de victoria de todas las partidas">Puntos Victoria</th>
           <th title="Veces que ha quedado 1º en una partida">1er Puesto</th>
           <th title="Veces que ha ganado una posición por desempate (criterio secundario de clasificación)">Desempates ⚖️</th>
-          <th title="1º→6pts · 2º→4pts · 3º→2pts · 4º→1pt">Tournament Points</th>
+          ${!esAmistoso ? `<th title="1º→6pts · 2º→4pts · 3º→2pts · 4º→1pt">Puntos Torneo</th>` : ''}
         </tr>
       </thead>
       <tbody>
@@ -719,7 +723,7 @@ function renderClasificacion(hastaRondaIdx, pagina) {
             <td>${j.pv}</td>
             <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
             <td>${j.desempateVictorias > 0 ? `<span class="desempate-victoria-badge">${j.desempateVictorias}</span>` : '—'}</td>
-            <td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>
+            ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>` : ''}
           </tr>`;
         }).join('')}
       </tbody>
@@ -751,6 +755,7 @@ function renderHistorial() {
   if (!state._histAbiertas) {
     state._histAbiertas = new Set([t.rondas.length - 1]);
   }
+  const esAmistoso = t.tipo === 'amistoso';
 
   contenedor.innerHTML = `<div class="hist-acordeon">${t.rondas.map((ronda, rondaIdx) => {
     const isOpen = state._histAbiertas.has(rondaIdx);
@@ -769,7 +774,7 @@ function renderHistorial() {
               <span class="hist-pos">${r.posicion}º</span>
               <span class="hist-nombre">${escapeHtml(r.nombre)}</span>
               <span class="hist-pv">${r.pv} PV</span>
-              <span class="hist-pts">+${TORNEO_PUNTOS[r.posicion - 1] || 0}pts</span>
+              ${!esAmistoso ? `<span class="hist-pts">+${TORNEO_PUNTOS[r.posicion - 1] || 0}pts</span>` : ''}
               ${r.desempateGanado ? '<span class="hist-desempate" title="Ganó por desempate">⚖️</span>' : ''}
             </div>`).join('')
         : '<p class="hist-sin-res">Sin resultado registrado</p>';
@@ -1006,7 +1011,8 @@ function generarRonda(t) {
     jugadores = [...t.jugadores].sort((a, b) => {
       const sa = stats[a.id] || {};
       const sb = stats[b.id] || {};
-      return (sb.torneoPoints || 0) - (sa.torneoPoints || 0)
+      const byTP = t.tipo === 'amistoso' ? 0 : (sb.torneoPoints || 0) - (sa.torneoPoints || 0);
+      return byTP
           || (sb.pv || 0)           - (sa.pv || 0)
           || (sb.primerPuesto || 0) - (sa.primerPuesto || 0)
           || (sb.desempateVictorias || 0) - (sa.desempateVictorias || 0);
@@ -1019,7 +1025,8 @@ function generarRonda(t) {
       const sa = stats[jugadores[i].id] || {};
       while (j < jugadores.length) {
         const sb = stats[jugadores[j].id] || {};
-        if (sb.torneoPoints !== sa.torneoPoints || sb.pv !== sa.pv) break;
+        const mismoPts = t.tipo === 'amistoso' ? true : sb.torneoPoints === sa.torneoPoints;
+        if (!mismoPts || sb.pv !== sa.pv) break;
         j++;
       }
       grupos.push(shuffleArr(jugadores.slice(i, j)));
@@ -1347,6 +1354,8 @@ function renderRondas() {
     return;
   }
 
+  const esAmistoso = t.tipo === 'amistoso';
+
   contenedor.innerHTML = t.rondas.map((ronda, rondaIdx) => {
     const enEdicion = editState.rondaIdx === rondaIdx;
     const haySeleccion = enEdicion && editState.jugadorIdx !== null;
@@ -1429,7 +1438,7 @@ function renderRondas() {
                         <span class="res-pos">${r.posicion}º</span>
                         <span class="res-nombre">${escapeHtml(r.nombre)}</span>
                         <span class="res-pv">${r.pv} PV</span>
-                        <span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>
+                        ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
                       </div>`).join('')}
                     <button class="btn-edit-res btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">✏️ Introducir resultado</button>
                   </div>`;
@@ -1608,6 +1617,7 @@ function generarHTMLTorneo(t) {
   const embed = {
     torneoId: t.id,
     torneoNombre: t.nombre,
+    tipo: t.tipo || 'oficial',
     pinArbitro: t.pinArbitro || null,
     numRondas: t.numRondas || null,
     jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
