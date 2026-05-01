@@ -1428,6 +1428,51 @@ main {
 }
 .pv-ronda-panel { padding: 0 0.5rem; }
 
+/* BANNER TORNEO FINALIZADO — organizador (tab Clasificación) */
+.torneo-fin-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #2a1a05, #3d2c05);
+  border: 1px solid var(--catan-gold);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.torneo-fin-info { display: flex; align-items: center; gap: 0.6rem; }
+.torneo-fin-icon { font-size: 1.5rem; }
+.torneo-fin-texto { font-size: 1.05rem; font-weight: 700; color: var(--catan-gold); }
+.torneo-fin-publicado { font-size: 0.9rem; color: var(--catan-green); font-weight: 600; }
+
+/* CLASIFICACIÓN FINAL — vista jugador */
+.pv-clasificacion-final {
+  padding: 1.5rem 1rem 2rem;
+}
+.pv-fin-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.pv-fin-trophy { font-size: 3.5rem; line-height: 1.1; }
+.pv-fin-titulo {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--catan-gold);
+  margin: 0.4rem 0 0.2rem;
+}
+.pv-fin-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.pv-fin-table {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
 /* BANNER NUEVA RONDA (vista invitado) */
 .pv-new-round-banner {
   display: flex;

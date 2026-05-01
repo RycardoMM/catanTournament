@@ -814,7 +814,21 @@ function renderClasificacion(hastaRondaIdx, pagina) {
   const slice = ordenados.slice(pag * 10, pag * 10 + 10);
   const offsetIdx = pag * 10;
 
-  contenedor.innerHTML = `
+  const finalizado = torneoFinalizado(t);
+  const yaPublicada = t.clasificacionPublicada || false;
+  const bannerFin = finalizado ? `
+    <div class="torneo-fin-banner">
+      <div class="torneo-fin-info">
+        <span class="torneo-fin-icon">🏆</span>
+        <span class="torneo-fin-texto">¡Torneo finalizado!</span>
+      </div>
+      ${yaPublicada
+        ? `<span class="torneo-fin-publicado">✅ Clasificación publicada</span>`
+        : `<button class="btn-sm btn-primary btn-publicar-clasif">📤 Compartir clasificación final</button>`
+      }
+    </div>` : '';
+
+  contenedor.innerHTML = bannerFin + `
     <table class="clasificacion-table">
       <thead>
         <tr>
@@ -854,6 +868,7 @@ function renderClasificacion(hastaRondaIdx, pagina) {
   contenedor.querySelector('.btn-pag-next')?.addEventListener('click', () =>
     renderClasificacion(hastaRondaIdx !== undefined ? hastaRondaIdx : idxFin, pag + 1)
   );
+  contenedor.querySelector('.btn-publicar-clasif')?.addEventListener('click', publicarClasificacionFinal);
 }
 
 function renderHistorial() {
@@ -1069,6 +1084,32 @@ function rondaActualCompleta(t) {
     const res = (ultima.resultadosMesas || [])[mi];
     return res && res.length > 0;
   });
+}
+
+function torneoFinalizado(t) {
+  if (!t || !t.numRondas || t.rondas.length < t.numRondas) return false;
+  return rondaActualCompleta(t);
+}
+
+function publicarClasificacionFinal() {
+  const t = state.torneoActivo;
+  if (!t) return;
+  const esAmistoso = t.tipo === 'amistoso';
+  const stats = calcularStats(t);
+  const clasificacion = Object.values(stats)
+    .sort((a, b) => esAmistoso
+      ? (b.pv - a.pv || b.primerPuesto - a.primerPuesto)
+      : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto))
+    .map((j, i) => ({ pos: i + 1, nombre: j.nombre, pv: j.pv, torneoPoints: j.torneoPoints, primerPuesto: j.primerPuesto }));
+  t.clasificacionPublicada = true;
+  guardarEstado();
+  if (_db) {
+    _db.ref(`catan_tournaments/${t.id}`).update({
+      clasificacionPublicada: true,
+      clasificacionFinal: clasificacion
+    });
+  }
+  renderClasificacion();
 }
 
 function actualizarBtnRonda() {
@@ -2102,6 +2143,37 @@ function renderPlayerView(shareData) {
   const esAmistoso = shareData.tipo === 'amistoso';
   const rondaActual = shareData.rondas.length;
   const totalRondas = shareData.numRondas || '?';
+  const clasificacionPublicada = !!(shareData.clasificacionPublicada && shareData.clasificacionFinal);
+
+  // --- Clasificación final (solo si el admin la ha publicado) ---
+  const clasificacionFinalHtml = clasificacionPublicada ? `
+    <div class="pv-clasificacion-final">
+      <div class="pv-fin-header">
+        <div class="pv-fin-trophy">🏆</div>
+        <h2 class="pv-fin-titulo">¡Torneo finalizado!</h2>
+        <p class="pv-fin-subtitle">Clasificación oficial</p>
+      </div>
+      <table class="clasificacion-table pv-fin-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Jugador</th>
+            <th title="Puntos de victoria totales">PV</th>
+            <th title="Veces 1º">1er Puesto</th>
+            ${!esAmistoso ? `<th title="Puntos torneo">Pts</th>` : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${shareData.clasificacionFinal.map(j => `
+            <tr>
+              <td class="pos-num ${j.pos===1?'top1':j.pos===2?'top2':j.pos===3?'top3':''}">${j.pos}</td>
+              <td>${escapeHtml(j.nombre)}</td>
+              <td>${j.pv}</td>
+              <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
+              ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>` : ''}
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
 
   // --- Pestañas por ronda + paneles de mesas ---
   const rondaActualNum = shareData.rondas.reduce((max, r) => Math.max(max, Number(r.numero)), 0);
@@ -2232,9 +2304,11 @@ function renderPlayerView(shareData) {
   const contenedor = document.getElementById('playerViewContent');
   contenedor.innerHTML = `
     <div class="player-header">
-      <div class="player-torneo-nombre">🏆 ${escapeHtml(shareData.torneoNombre)}</div>
-      <div class="player-ronda-badge">Ronda ${rondaActual} de ${totalRondas}</div>
+      <div class="player-torneo-nombre">${clasificacionPublicada ? '🏆' : '🎮'} ${escapeHtml(shareData.torneoNombre)}</div>
+      ${!clasificacionPublicada ? `<div class="player-ronda-badge">Ronda ${rondaActual} de ${totalRondas}</div>` : ''}
     </div>
+    ${clasificacionFinalHtml}
+    ${clasificacionPublicada ? '' : `
     <div class="detalle-tabs">
       <button class="tab-btn active" data-pv-tab="mesas">🎯 Mesas</button>
       <button class="tab-btn" data-pv-tab="historial">📜 Historial</button>
@@ -2249,7 +2323,7 @@ function renderPlayerView(shareData) {
       <div class="panel">
         ${historialHtml}
       </div>
-    </div>
+    </div>`}
   `;
 
   // Tabs principales (Mesas / Historial)
@@ -2281,7 +2355,14 @@ function renderPlayerView(shareData) {
     _guestTorneoRef = _db.ref(`catan_tournaments/${shareData.torneoId}`);
     _guestTorneoRef.on('value', snap => {
       const fbT = snap.val();
-      if (!fbT || !fbT.rondas || fbT.rondas.length <= shareData.rondas.length) return;
+      if (!fbT) return;
+      // Clasificación final publicada por el organizador
+      if (fbT.clasificacionPublicada && !shareData.clasificacionPublicada) {
+        _guestTorneoRef.off('value'); _guestTorneoRef = null;
+        cargarTorneoDesdeFirebase(shareData.torneoId);
+        return;
+      }
+      if (!fbT.rondas || fbT.rondas.length <= shareData.rondas.length) return;
       // Nueva(s) ronda(s) disponibles — fusionar resultados existentes
       const mergedRondas = fbT.rondas.map(r => {
         const ex = shareData.rondas.find(e => e.numero === r.numero);
@@ -2513,7 +2594,9 @@ function cargarTorneoDesdeFirebase(torneoId) {
       numRondas: fbT.numRondas || null,
       desempate: fbT.desempate || [],
       jugadores: fbT.jugadores || [],
-      rondas: rondasConResultados
+      rondas: rondasConResultados,
+      clasificacionPublicada: fbT.clasificacionPublicada || false,
+      clasificacionFinal: fbT.clasificacionFinal || null
     };
     renderPlayerView(shareData);
   }).catch(e => {
