@@ -1994,6 +1994,7 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
     torneoNombre: t.nombre,
     tipo: t.tipo || 'oficial',
     numRondas: t.numRondas || null,
+    desempate: t.desempate || [],
     jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
     rondas: t.rondas.map(r => ({
       numero: r.numero,
@@ -2168,43 +2169,109 @@ function renderPlayerView(shareData) {
     });
   });
 
+  // Helpers para submit y desempate (closures sobre esAmistoso / shareData)
+  const DESEMPATE_NOMBRES = {
+    puntos_victoria: 'Más PV', carretera_larga: 'Carretera más larga',
+    menos_recursos: 'Menos recursos', cartas_desarrollo: 'Más cartas de desarrollo'
+  };
+
+  const pvRenderResultado = (card, datos, mesaLen, mesaNum) => {
+    card.innerHTML = `
+      <div class="mesa-header">Mesa ${mesaNum} <span class="mesa-count">(${mesaLen})</span></div>
+      <div class="resultado-display">
+        ${datos.map(r => `
+          <div class="resultado-item pos${r.posicion}">
+            <span class="res-pos">${r.posicion}º</span>
+            <span class="res-nombre">${escapeHtml(r.nombre)}</span>
+            <span class="res-pv">${r.pv} PV</span>
+            ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+          </div>`).join('')}
+      </div>
+      <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
+  };
+
+  const pvEnviar = async (card, datos, torneoId, rondaNum, mi, mesaLen) => {
+    datos.forEach((j, i) => { j.posicion = i + 1; });
+    try {
+      await fbEnviarResultado(torneoId, rondaNum, mi, datos);
+      pvRenderResultado(card, datos, mesaLen, mi + 1);
+    } catch(e) {
+      const btn = card.querySelector('.btn-confirm-orden, .btn-pv-submit');
+      if (btn) { btn.textContent = '✗ Error al enviar'; btn.disabled = false; }
+      console.error('[Firebase] Error:', e);
+    }
+  };
+
+  const pvMostrarDesempate = (card, orden, torneoId, rondaNum, mi, mesaLen) => {
+    const criteriosTexto = (shareData.desempate || [])
+      .map(c => DESEMPATE_NOMBRES[c] || c).join(' → ');
+
+    const render = () => {
+      const listaHtml = orden.map((j, i) => {
+        const puedeSubir  = i > 0 && orden[i - 1].pv === j.pv;
+        const puedeBajar  = i < orden.length - 1 && orden[i + 1].pv === j.pv;
+        return `
+          <div class="desempate-row">
+            <span class="res-pos">${i + 1}º</span>
+            <span class="desempate-nombre">${escapeHtml(j.nombre)}</span>
+            <span class="res-pv">${j.pv} PV</span>
+            <div class="desempate-arrows">
+              <button class="btn-arrow${puedeSubir ? '' : ' invisible'}"
+                data-action="up" data-idx="${i}">▲</button>
+              <button class="btn-arrow${puedeBajar ? '' : ' invisible'}"
+                data-action="down" data-idx="${i}">▼</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesaLen})</span></div>
+        <div class="pv-desempate">
+          <p class="pv-desempate-title">⚖️ Hay empate — establece el orden final</p>
+          ${criteriosTexto ? `<p class="pv-desempate-hint">Criterios: ${criteriosTexto}</p>` : ''}
+          <div class="pv-desempate-lista">${listaHtml}</div>
+          <button class="btn-sm btn-primary btn-confirm-orden">✓ Confirmar orden</button>
+        </div>`;
+
+      card.querySelectorAll('.btn-arrow:not(.invisible)').forEach(b => {
+        b.addEventListener('click', () => {
+          const idx = parseInt(b.dataset.idx);
+          if (b.dataset.action === 'up')   [orden[idx], orden[idx - 1]] = [orden[idx - 1], orden[idx]];
+          if (b.dataset.action === 'down') [orden[idx], orden[idx + 1]] = [orden[idx + 1], orden[idx]];
+          render();
+        });
+      });
+
+      card.querySelector('.btn-confirm-orden').addEventListener('click', async () => {
+        const c = card.querySelector('.btn-confirm-orden');
+        c.textContent = '⏳ Enviando…'; c.disabled = true;
+        await pvEnviar(card, orden, torneoId, rondaNum, mi, mesaLen, mi + 1);
+      });
+    };
+    render();
+  };
+
   // Submit directo a Firebase
   contenedor.querySelectorAll('.btn-pv-submit').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const rondaNum = parseInt(btn.dataset.ronda);
       const mi = parseInt(btn.dataset.mesa);
       const ronda = shareData.rondas.find(r => r.numero === rondaNum);
-      // Recoger PVs y calcular posiciones
+      const card = document.getElementById(`mesa-card-${rondaNum}-${mi}`);
+      const mesaLen = ronda.mesas[mi].length;
+
       const rawDatos = ronda.mesas[mi].map(j => ({
         id: j.id, nombre: j.nombre,
         pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
       }));
       const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
-      sorted.forEach((j, i) => {
-        j.posicion = i > 0 && j.pv === sorted[i - 1].pv ? sorted[i - 1].posicion : i + 1;
-      });
-      btn.textContent = '⏳ Enviando…';
-      btn.disabled = true;
-      try {
-        await fbEnviarResultado(shareData.torneoId, rondaNum, mi, sorted);
-        // Reemplazar card por resultado display
-        const card = document.getElementById(`mesa-card-${rondaNum}-${mi}`);
-        card.innerHTML = `
-          <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${ronda.mesas[mi].length})</span></div>
-          <div class="resultado-display">
-            ${sorted.map(r => `
-              <div class="resultado-item pos${r.posicion}">
-                <span class="res-pos">${r.posicion}º</span>
-                <span class="res-nombre">${escapeHtml(r.nombre)}</span>
-                <span class="res-pv">${r.pv} PV</span>
-                ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
-              </div>`).join('')}
-          </div>
-          <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
-      } catch(e) {
-        btn.textContent = '✗ Error al enviar';
-        btn.disabled = false;
-        console.error('[Firebase] Error al enviar resultado:', e);
+      const hayEmpate = sorted.some((j, i) => i > 0 && j.pv === sorted[i - 1].pv);
+
+      if (hayEmpate) {
+        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
+      } else {
+        btn.textContent = '⏳ Enviando…'; btn.disabled = true;
+        pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
       }
     });
   });

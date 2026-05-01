@@ -1398,6 +1398,18 @@ main {
 }
 .import-code-input:focus { border-color: var(--catan-gold); }
 
+/* DESEMPATE INLINE (vista invitado) */
+.pv-desempate { padding: 0.5rem 0 0.25rem; }
+.pv-desempate-title { font-size: 0.9rem; font-weight: 700; color: var(--catan-gold); margin-bottom: 0.4rem; }
+.pv-desempate-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+.pv-desempate-lista { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; }
+.desempate-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; background: var(--surface2); border-radius: var(--radius); }
+.desempate-nombre { flex: 1; font-size: 0.88rem; }
+.desempate-arrows { display: flex; flex-direction: column; gap: 2px; }
+.btn-arrow { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; cursor: pointer; font-size: 0.65rem; color: var(--text); line-height: 1.4; }
+.btn-arrow:hover { background: var(--catan-gold); color: #1a1410; border-color: var(--catan-gold); }
+.btn-arrow.invisible { visibility: hidden; pointer-events: none; }
+
 /* FIREBASE TOAST */
 .fb-toast {
   position: fixed;
