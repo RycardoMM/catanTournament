@@ -1,3 +1,97 @@
+// =============================================
+// FIREBASE — sincronización en tiempo real
+// =============================================
+// Pasos para activar:
+// 1. Ve a https://console.firebase.google.com → Crear proyecto
+// 2. Agrega una app web → copia la config aquí abajo
+// 3. Ve a Realtime Database → Crear base de datos → Modo prueba
+// 4. (Opcional) En Rules, pon ".read": true, ".write": true bajo "catan_results"
+const FIREBASE_CONFIG = {
+  apiKey:            "",
+  authDomain:        "",
+  databaseURL:       "",   // ← obligatorio: "https://TU-APP-default-rtdb.firebaseio.com"
+  projectId:         "",
+  storageBucket:     "",
+  messagingSenderId: "",
+  appId:             ""
+};
+
+const FIREBASE_ENABLED = typeof firebase !== 'undefined' && !!FIREBASE_CONFIG.databaseURL;
+let _db = null;
+let _fbListenerRef = null;
+
+(function initFirebase() {
+  if (!FIREBASE_ENABLED) return;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.database();
+    console.info('[Firebase] Conectado:', FIREBASE_CONFIG.databaseURL);
+  } catch(e) {
+    console.warn('[Firebase] Error al inicializar:', e.message);
+  }
+})();
+
+function fbEnviarResultado(torneoId, rondaNum, mesaIdx, datos) {
+  if (!_db) return Promise.reject('Firebase no disponible');
+  return _db.ref(`catan_results/${torneoId}/${rondaNum}_${mesaIdx}`).set(datos);
+}
+
+function fbIniciarListener(torneoId) {
+  if (!_db) return;
+  fbDetenerListener();
+  _fbListenerRef = _db.ref(`catan_results/${torneoId}`);
+  _fbListenerRef.on('value', snap => {
+    const data = snap.val();
+    if (data) _aplicarResultadosFirebase(torneoId, data);
+  });
+}
+
+function fbDetenerListener() {
+  if (_fbListenerRef) { _fbListenerRef.off('value'); _fbListenerRef = null; }
+}
+
+function _aplicarResultadosFirebase(torneoId, data) {
+  const t = state.torneos.find(x => x.id === torneoId);
+  if (!t || t !== state.torneoActivo) return;
+  let changed = false;
+  Object.entries(data).forEach(([key, resultados]) => {
+    const parts = key.split('_');
+    const mesaIdx = parseInt(parts.pop());
+    const rondaNum = parseInt(parts.join('_'));
+    const ronda = t.rondas.find(r => r.numero === rondaNum);
+    if (!ronda) return;
+    ronda.resultadosMesas = ronda.resultadosMesas || [];
+    if (JSON.stringify(ronda.resultadosMesas[mesaIdx]) !== JSON.stringify(resultados)) {
+      ronda.resultadosMesas[mesaIdx] = resultados;
+      changed = true;
+    }
+  });
+  if (changed) {
+    guardarEstado();
+    renderRondas();
+    renderClasificacion();
+    renderHistorial();
+    actualizarBtnRonda();
+    _mostrarToastFb('🔄 Resultado recibido de un jugador');
+  }
+}
+
+function _mostrarToastFb(msg) {
+  let toast = document.getElementById('fb-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'fb-toast';
+    toast.className = 'fb-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('visible'), 3500);
+}
+
+// =============================================
+
 const state = {
   torneos: JSON.parse(localStorage.getItem('catan_torneos') || '[]'),
   torneoActivo: null,
@@ -819,9 +913,11 @@ function abrirDetalle(id) {
   cambiarTab('jugadores'); // siempre empieza en la primera tab
   renderDetalle();
   mostrarVista('detalle');
+  fbIniciarListener(id); // escuchar resultados en tiempo real
 }
 
 document.getElementById('btnVolver').addEventListener('click', () => {
+  fbDetenerListener();
   state.torneoActivo = null;
   mostrarVista('inicio');
 });
@@ -1940,7 +2036,7 @@ function renderPlayerView(shareData) {
           </div>`;
       }
       return `
-        <div class="mesa-card">
+        <div class="mesa-card" id="mesa-card-${ronda.numero}-${mi}">
           <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
           <ul class="mesa-jugadores">
             ${mesa.map(j => `<li><span class="jugador-nombre">${escapeHtml(j.nombre)}</span></li>`).join('')}
@@ -1953,17 +2049,22 @@ function renderPlayerView(shareData) {
                   id="pvg_${sfx}_${j.id}" data-id="${j.id}" />
               </div>`).join('')}
             <div class="resultado-form-actions">
-              <button class="btn-sm btn-primary btn-pv-gencode"
-                data-ronda="${ronda.numero}" data-mesa="${mi}">✓ Generar código</button>
+              ${FIREBASE_ENABLED
+                ? `<button class="btn-sm btn-primary btn-pv-submit"
+                    data-ronda="${ronda.numero}" data-mesa="${mi}">✓ Confirmar resultados</button>`
+                : `<button class="btn-sm btn-primary btn-pv-gencode"
+                    data-ronda="${ronda.numero}" data-mesa="${mi}">✓ Generar código</button>`
+              }
             </div>
           </div>
+          ${!FIREBASE_ENABLED ? `
           <div class="player-code-result hidden" id="pvcode-${sfx}">
             <p class="player-code-label">📋 Código listo — envíaselo al organizador:</p>
             <div class="player-code-wrap">
               <textarea class="player-code-text" readonly rows="3"></textarea>
               <button class="btn-sm btn-primary btn-pv-copy" data-sfx="${sfx}">Copiar</button>
             </div>
-          </div>
+          </div>` : ''}
         </div>`;
     }).join('');
 
@@ -2055,15 +2156,55 @@ function renderPlayerView(shareData) {
     });
   });
 
-  // Generar código
+  // Submit directo a Firebase
+  contenedor.querySelectorAll('.btn-pv-submit').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const rondaNum = parseInt(btn.dataset.ronda);
+      const mi = parseInt(btn.dataset.mesa);
+      const ronda = shareData.rondas.find(r => r.numero === rondaNum);
+      // Recoger PVs y calcular posiciones
+      const rawDatos = ronda.mesas[mi].map(j => ({
+        id: j.id, nombre: j.nombre,
+        pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
+      }));
+      const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
+      sorted.forEach((j, i) => {
+        j.posicion = i > 0 && j.pv === sorted[i - 1].pv ? sorted[i - 1].posicion : i + 1;
+      });
+      btn.textContent = '⏳ Enviando…';
+      btn.disabled = true;
+      try {
+        await fbEnviarResultado(shareData.torneoId, rondaNum, mi, sorted);
+        // Reemplazar card por resultado display
+        const card = document.getElementById(`mesa-card-${rondaNum}-${mi}`);
+        card.innerHTML = `
+          <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${ronda.mesas[mi].length})</span></div>
+          <div class="resultado-display">
+            ${sorted.map(r => `
+              <div class="resultado-item pos${r.posicion}">
+                <span class="res-pos">${r.posicion}º</span>
+                <span class="res-nombre">${escapeHtml(r.nombre)}</span>
+                <span class="res-pv">${r.pv} PV</span>
+                ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+              </div>`).join('')}
+          </div>
+          <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
+      } catch(e) {
+        btn.textContent = '✗ Error al enviar';
+        btn.disabled = false;
+        console.error('[Firebase] Error al enviar resultado:', e);
+      }
+    });
+  });
+
+  // Generar código (fallback sin Firebase)
   contenedor.querySelectorAll('.btn-pv-gencode').forEach(btn => {
     btn.addEventListener('click', () => {
       const rondaNum = parseInt(btn.dataset.ronda);
       const mi = parseInt(btn.dataset.mesa);
       const ronda = shareData.rondas.find(r => r.numero === rondaNum);
       const resultados = ronda.mesas[mi].map(j => ({
-        id: j.id,
-        nombre: j.nombre,
+        id: j.id, nombre: j.nombre,
         pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
       }));
       const code = _b64Encode(JSON.stringify({ torneoId: shareData.torneoId, rondaNum, mesaIdx: mi, resultados }));
@@ -2076,7 +2217,7 @@ function renderPlayerView(shareData) {
     });
   });
 
-  // Copiar código
+  // Copiar código (fallback sin Firebase)
   contenedor.querySelectorAll('.btn-pv-copy').forEach(btn => {
     btn.addEventListener('click', () => {
       const text = document.getElementById(`pvcode-${btn.dataset.sfx}`).querySelector('.player-code-text').value;

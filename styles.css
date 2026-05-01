@@ -1398,6 +1398,33 @@ main {
 }
 .import-code-input:focus { border-color: var(--catan-gold); }
 
+/* FIREBASE TOAST */
+.fb-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: var(--catan-gold);
+  color: #1a1410;
+  font-weight: 600;
+  padding: 0.65rem 1.4rem;
+  border-radius: 2rem;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+  transition: transform 0.3s ease;
+  z-index: 9999;
+  white-space: nowrap;
+}
+.fb-toast.visible { transform: translateX(-50%) translateY(0); }
+
+.pv-submit-ok {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #4caf50;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* VISTA JUGADOR */
 #vistaJugador {
   min-height: 100vh;
