@@ -128,8 +128,9 @@ document.querySelectorAll('.sidebar-item').forEach(btn => {
     if (seccion === 'mapa' && !overlay.classList.contains('hidden')) {
       mostrarConfirm(
         '¿Abandonar la configuración?',
-        'Perderás los datos del torneo que estás creando.',
-        () => { cerrarModal(); mostrarSeccion(seccion); }
+        'Se perderán los datos del torneo que estás creando.',
+        () => { cerrarModal(); mostrarSeccion(seccion); },
+        { ocultarIcono: true, textoOk: 'Sí, salir' }
       );
       return;
     }
@@ -696,16 +697,22 @@ function renderTorneos() {
 
 let _confirmCallback = null;
 
-function mostrarConfirm(titulo, msg, onOk) {
+function mostrarConfirm(titulo, msg, onOk, opts = {}) {
   document.getElementById('modalConfirmTitle').textContent = titulo;
   document.getElementById('modalConfirmMsg').textContent = msg;
   _confirmCallback = onOk;
+  const icon = document.querySelector('#modalConfirm .modal-confirm-icon');
+  icon.style.display = opts.ocultarIcono ? 'none' : '';
+  document.getElementById('btnConfirmOk').textContent = opts.textoOk || 'Eliminar';
   document.getElementById('modalConfirm').classList.remove('hidden');
 }
 
 function cerrarConfirm() {
   document.getElementById('modalConfirm').classList.add('hidden');
   _confirmCallback = null;
+  // Restaurar valores por defecto
+  document.querySelector('#modalConfirm .modal-confirm-icon').style.display = '';
+  document.getElementById('btnConfirmOk').textContent = 'Eliminar';
 }
 
 document.getElementById('btnConfirmCancel').addEventListener('click', cerrarConfirm);
