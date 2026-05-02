@@ -126,7 +126,7 @@ document.querySelectorAll('.sidebar-item').forEach(btn => {
     const seccion = btn.dataset.section;
     // Si el modal de crear torneo está abierto y se intenta ir al mapa, pedir confirmación
     if (seccion === 'mapa' && !overlay.classList.contains('hidden')) {
-      abrirConfirm(
+      mostrarConfirm(
         '¿Abandonar la configuración?',
         'Perderás los datos del torneo que estás creando.',
         () => { cerrarModal(); mostrarSeccion(seccion); }

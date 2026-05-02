@@ -1740,7 +1740,7 @@ main {
     padding: 0.3rem 0.5rem;
     border-right: none;
     border-top: 2px solid var(--border);
-    z-index: 200;
+    z-index: 400;
     overflow-x: auto;
     overflow-y: visible;
     gap: 0;
