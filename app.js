@@ -75,20 +75,27 @@ async function fbSincronizarResultadosExistentes(t) {
 
 function fbActualizarTorneo(t) {
   if (!_db) return;
-  _db.ref(`catan_tournaments/${t.id}`).set({
-    torneoNombre: t.nombre,
-    tipo: t.tipo || 'oficial',
+  // JSON.parse(JSON.stringify()) elimina valores undefined que Firebase rechaza
+  const safe = JSON.parse(JSON.stringify({
+    id: t.id,
+    nombre: t.nombre,
+    torneoNombre: t.nombre,          // alias para vista jugador
+    numJugadores: t.numJugadores,
+    jugadoresPorPartida: t.jugadoresPorPartida,
     numRondas: t.numRondas || null,
+    formato: t.formato || null,
+    tipo: t.tipo || 'oficial',
+    metosDesempate: t.metosDesempate || t.desempate || [],
     desempate: t.metosDesempate || t.desempate || [],
-    jugadores: (t.jugadores || []).map(j => ({ id: j.id || null, nombre: j.nombre })),
-    rondas: t.rondas.map(r => ({
-      numero: r.numero,
-      sistema: r.sistema || null,
-      mesas: r.mesas.map(m => m.map(j => ({ id: j.id || null, nombre: j.nombre })))
-    })),
+    fechaCreacion: t.fechaCreacion || null,
+    estado: t.estado || 'activo',
+    jugadores: t.jugadores || [],
+    rondas: t.rondas || [],
     clasificacionPublicada: t.clasificacionPublicada || false,
-    clasificacionFinal: t.clasificacionFinal || null
-  });
+    clasificacionFinal: t.clasificacionFinal || null,
+    mapa: t.mapa || null
+  }));
+  _db.ref(`catan_tournaments/${t.id}`).set(safe);
 }
 
 let _guestTorneoRef = null;
@@ -144,6 +151,37 @@ const state = {
 
 function guardarEstado() {
   localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
+  // Sincronizar torneo activo con Firebase en cada guardado
+  if (state.torneoActivo && FIREBASE_ENABLED && _db) {
+    try { fbActualizarTorneo(state.torneoActivo); } catch(e) {}
+  }
+}
+
+// Carga todos los torneos desde Firebase al arrancar (si localStorage está vacío o Firebase tiene más datos)
+async function cargarTorneosDesdeFirebase() {
+  if (!FIREBASE_ENABLED || !_db) return;
+  try {
+    const snap = await _db.ref('catan_tournaments').once('value');
+    const data = snap.val();
+    if (!data) return;
+    const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre);
+    if (torneosFb.length === 0) return;
+    // Combinar: los torneos de Firebase ganan sobre localStorage
+    const idsLocales = new Set(state.torneos.map(t => String(t.id)));
+    let cambios = false;
+    torneosFb.forEach(t => {
+      if (!idsLocales.has(String(t.id))) {
+        state.torneos.push(t);
+        cambios = true;
+      }
+    });
+    if (cambios) {
+      localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
+      renderTorneos();
+    }
+  } catch(e) {
+    console.warn('Error cargando torneos desde Firebase:', e);
+  }
 }
 
 // --- Navegación de secciones (sidebar) ---
@@ -2833,4 +2871,5 @@ function checkShareMode() {
 // Init
 if (!checkShareMode()) {
   renderTorneos();
+  cargarTorneosDesdeFirebase(); // Cargar torneos desde Firebase si hay nuevos
 }
