@@ -122,7 +122,19 @@ function guardarEstado() {
 
 // --- Navegación de secciones (sidebar) ---
 document.querySelectorAll('.sidebar-item').forEach(btn => {
-  btn.addEventListener('click', () => mostrarSeccion(btn.dataset.section));
+  btn.addEventListener('click', () => {
+    const seccion = btn.dataset.section;
+    // Si el modal de crear torneo está abierto y se intenta ir al mapa, pedir confirmación
+    if (seccion === 'mapa' && !overlay.classList.contains('hidden')) {
+      abrirConfirm(
+        '¿Abandonar la configuración?',
+        'Perderás los datos del torneo que estás creando.',
+        () => { cerrarModal(); mostrarSeccion(seccion); }
+      );
+      return;
+    }
+    mostrarSeccion(seccion);
+  });
 });
 
 function mostrarSeccion(seccion) {
@@ -541,7 +553,6 @@ document.getElementById('btnGenerarMapaTorneo').addEventListener('click', genera
 const overlay = document.getElementById('modalOverlay');
 document.getElementById('btnCrearTorneo').addEventListener('click', () => overlay.classList.remove('hidden'));
 document.getElementById('btnCerrarModal').addEventListener('click', cerrarModal);
-document.getElementById('btnCancelar').addEventListener('click', cerrarModal);
 overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrarModal(); });
 
 function cerrarModal() {
