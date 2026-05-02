@@ -65,8 +65,11 @@ async function fbSincronizarResultadosExistentes(t) {
       }
     });
   });
+  // Siempre subir/actualizar la estructura del torneo en Firebase
+  try { fbActualizarTorneo(t); } catch(e) { console.warn('fbSincronizar torneo:', e.message); }
+
   if (promesas.length) {
-    await Promise.all(promesas).catch(e => console.warn('fbSincronizar:', e.message));
+    await Promise.all(promesas).catch(e => console.warn('fbSincronizar resultados:', e.message));
   }
 }
 
@@ -81,7 +84,7 @@ function fbActualizarTorneo(t) {
     rondas: t.rondas.map(r => ({
       numero: r.numero,
       sistema: r.sistema || null,          // evitar undefined → error Firebase
-      mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre })))
+      mesas: r.mesas.map(m => m.map(j => ({ id: j.id || null, nombre: j.nombre })))
     }))
   });
 }
@@ -697,7 +700,7 @@ function renderTorneos() {
       <p class="meta">👥 ${t.numJugadores} jugadores · ${t.jugadoresPorPartida} por partida</p>
       <p class="meta">🎲 ${formatFormato(t.formato)} · ${t.tipo === 'amistoso' ? '🤝 Amistoso' : '🏅 Oficial'}</p>
       <p class="meta">📅 ${t.fechaCreacion}</p>
-      <p class="meta">🏆 Desempate: ${t.metosDesempate.map(formatDesempate).join(' › ')}</p>
+      <p class="meta">🏆 Desempate: ${(t.metosDesempate || t.desempate || []).map(formatDesempate).join(' › ')}</p>
       <div class="card-footer">
         <span class="badge">${t.estado}</span>
         <button class="btn-sm btn-outline btn-gestionar" data-id="${t.id}">Gestionar →</button>
@@ -1431,7 +1434,7 @@ function mostrarModalEmpate(rondaIdx, mesaIdx, datos) {
     <div class="empate-criterios">
       <p class="empate-criterios-titulo">Criterios de desempate configurados:</p>
       <ol class="empate-criterios-lista">
-        ${torneo.metosDesempate.map(m => `<li>${formatDesempate(m)}</li>`).join('')}
+        ${(torneo.metosDesempate || torneo.desempate || []).map(m => `<li>${formatDesempate(m)}</li>`).join('')}
       </ol>
     </div>`;
 
@@ -1983,7 +1986,7 @@ function generarHTMLTorneo(t) {
     jugadores: t.jugadores.map(j => ({ id: j.id, nombre: j.nombre })),
     rondas: t.rondas.map(r => ({
       numero: r.numero,
-      mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre }))),
+      mesas: r.mesas.map(m => m.map(j => ({ id: j.id || null, nombre: j.nombre }))),
       resultadosMesas: r.resultadosMesas || []
     })),
     pts: TORNEO_PUNTOS
@@ -2274,7 +2277,7 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
       rondas: t.rondas.map(r => ({
         numero: r.numero,
         sistema: r.sistema,
-        mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre }))),
+        mesas: r.mesas.map(m => m.map(j => ({ id: j.id || null, nombre: j.nombre }))),
         resultadosMesas: r.resultadosMesas || []
       }))
     };
