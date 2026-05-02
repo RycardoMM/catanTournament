@@ -709,12 +709,12 @@ function renderTorneos() {
   `).join('');
 
   lista.querySelectorAll('.btn-gestionar').forEach(btn => {
-    btn.addEventListener('click', () => abrirDetalle(parseInt(btn.dataset.id)));
+    btn.addEventListener('click', () => abrirDetalle(btn.dataset.id));
   });
   lista.querySelectorAll('.btn-delete-torneo').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      eliminarTorneo(parseInt(btn.dataset.id));
+      eliminarTorneo(btn.dataset.id);
     });
   });
 }
@@ -750,14 +750,14 @@ document.getElementById('modalConfirm').addEventListener('click', (e) => {
 });
 
 function eliminarTorneo(id) {
-  const torneo = state.torneos.find(t => t.id === id);
+  const torneo = state.torneos.find(t => String(t.id) === String(id));
   if (!torneo) return;
   mostrarConfirm(
     `¿Eliminar "${torneo.nombre}"?`,
     'Esta acción no se puede deshacer.',
     () => {
-      state.torneos = state.torneos.filter(t => t.id !== id);
-      if (state.torneoActivo && state.torneoActivo.id === id) {
+      state.torneos = state.torneos.filter(t => String(t.id) !== String(id));
+      if (state.torneoActivo && String(state.torneoActivo.id) === String(id)) {
         state.torneoActivo = null;
       }
       guardarEstado();
@@ -1070,7 +1070,7 @@ function renderHistorial() {
 
 // --- Vista detalle ---
 function abrirDetalle(id) {
-  state.torneoActivo = state.torneos.find(t => t.id === id);
+  state.torneoActivo = state.torneos.find(t => String(t.id) === String(id));
   if (!state.torneoActivo) return;
   cambiarTab('jugadores'); // siempre empieza en la primera tab
   renderDetalle();
