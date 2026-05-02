@@ -1563,24 +1563,27 @@ main {
 #vistaJugador {
   min-height: 100vh;
   background: var(--bg);
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 2rem;
 }
 
 #playerViewContent {
-  max-width: 680px;
+  max-width: 600px;
   margin: 0 auto;
 }
 
 .player-header {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .player-torneo-nombre {
-  font-size: 1.8rem;
+  font-size: 2rem;
   font-weight: 800;
   color: var(--catan-gold);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
 }
 
 .player-ronda-badge {
@@ -1589,11 +1592,11 @@ main {
   border: 1px solid rgba(212,160,23,0.3);
   color: var(--catan-gold);
   border-radius: 20px;
-  padding: 0.25rem 1rem;
+  padding: 0.35rem 1.25rem;
   font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
 }
 
 .player-instrucciones {
@@ -1604,10 +1607,26 @@ main {
   line-height: 1.5;
 }
 
+/* Tabs Mesas / Historial dentro del player view */
+#playerViewContent .detalle-tabs {
+  margin-bottom: 1.5rem;
+}
+
+/* Pestañas de ronda */
+.pv-rondas-tabs {
+  padding: 0.5rem 0 0;
+  margin-bottom: 1.25rem;
+}
+
+/* Panel de ronda */
+.pv-ronda-panel {
+  padding: 0;
+}
+
 .player-mesas {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .player-mesa-card {
@@ -1615,53 +1634,96 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.player-mesa-card:hover {
+  border-color: rgba(212,160,23,0.4);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
 }
 
 .player-mesa-title {
   background: var(--catan-dark);
   border-bottom: 1px solid var(--border);
-  padding: 0.6rem 1rem;
-  font-size: 0.8rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
+  letter-spacing: 1.5px;
+  color: var(--catan-gold);
 }
 
 .player-jugadores {
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .player-jugador-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(90,53,32,0.25);
+}
+
+.player-jugador-row:last-child {
+  border-bottom: none;
 }
 
 .player-jugador-nombre {
   flex: 1;
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   color: var(--text);
 }
 
 .player-pv-input {
-  width: 70px;
+  width: 72px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text);
   font-size: 1rem;
   font-weight: 700;
   text-align: center;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.5rem;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
-.player-pv-input:focus { border-color: var(--catan-gold); }
+.player-pv-input:focus {
+  border-color: var(--catan-gold);
+  background: var(--surface);
+}
+
+/* Botón confirmar/generar código dentro de la card del jugador */
+.btn-pv-submit,
+.btn-pv-gencode {
+  display: block;
+  width: calc(100% - 2.5rem);
+  margin: 0 1.25rem 1.25rem;
+  padding: 0.65rem;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* Mobile: ajustar padding de la vista jugador */
+@media (max-width: 768px) {
+  #vistaJugador {
+    padding: 1.5rem 1rem 5rem;
+  }
+  .player-torneo-nombre {
+    font-size: 1.5rem;
+  }
+  .player-jugadores {
+    padding: 0.85rem 1rem;
+  }
+  .player-mesa-title {
+    padding: 0.6rem 1rem;
+  }
+}
 
 .player-mesa-card .btn-generar-codigo {
   display: block;
@@ -1850,9 +1912,7 @@ main {
   .mapa-opciones-row { flex-wrap: wrap; gap: 0.5rem; }
   .btn-mapa-toolbar { width: 100%; }
 
-  /* Vista jugador (enlace compartido) */
-  #vistaJugador { padding: 1.25rem 0.9rem 5rem; }
-  .player-torneo-nombre { font-size: 1.4rem; }
+  /* Vista jugador (enlace compartido) — sobreescrito en bloque player-view más abajo */
 
   /* Mapa hex: escalar para caber */
   #hexBoard, #hexBoardDetalle { overflow-x: auto; }
@@ -1973,7 +2033,7 @@ main {
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
   #vistaJugador {
-    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 
   /* 4. Touch targets mínimos — el estándar recomendado es 44×44px */
