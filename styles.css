@@ -1942,12 +1942,7 @@ main {
    MOBILE UX FIXES
    ============================================= */
 
-/* 1. Body scroll lock cuando hay modal abierto (evita que el fondo se desplace en iOS) */
-body:has(.modal-overlay:not(.hidden)) {
-  overflow: hidden;
-}
-
-/* El modal retiene el scroll para sí mismo (no propaga al body) */
+/* 1. El modal retiene el scroll para sí mismo (no propaga al fondo) */
 .modal-overlay {
   overscroll-behavior: contain;
 }
