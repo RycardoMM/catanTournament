@@ -67,6 +67,7 @@ function fbActualizarTorneo(t) {
 }
 
 let _guestTorneoRef = null;
+let _guestResultsRef = null;
 
 function _aplicarResultadosFirebase(torneoId, data) {
   const t = state.torneos.find(x => x.id === torneoId);
@@ -2704,12 +2705,44 @@ function cargarTorneoDesdeFirebase(torneoId) {
     return;
   }
 
-  Promise.all([
-    _db.ref(`catan_tournaments/${torneoId}`).once('value'),
-    _db.ref(`catan_results/${torneoId}`).once('value')
-  ]).then(([torneoSnap, resultsSnap]) => {
-    const fbT = torneoSnap.val();
-    if (!fbT) {
+  // Limpiar listeners previos si los hubiera
+  if (_guestTorneoRef) { _guestTorneoRef.off(); _guestTorneoRef = null; }
+  if (_guestResultsRef) { _guestResultsRef.off(); _guestResultsRef = null; }
+
+  let _fbT = null;
+  let _results = {};
+  let _firstLoad = true;
+
+  function _rebuildAndRender() {
+    if (!_fbT) return;
+    const rondasConResultados = (_fbT.rondas || []).map(r => {
+      const resMesas = [];
+      (r.mesas || []).forEach((_, mi) => {
+        const key = `${r.numero}_${mi}`;
+        if (_results[key]) resMesas[mi] = _results[key];
+      });
+      return { ...r, resultadosMesas: resMesas };
+    });
+    const shareData = {
+      torneoId,
+      torneoNombre: _fbT.torneoNombre,
+      tipo: _fbT.tipo || 'oficial',
+      numRondas: _fbT.numRondas || null,
+      desempate: _fbT.desempate || [],
+      jugadores: _fbT.jugadores || [],
+      rondas: rondasConResultados,
+      clasificacionPublicada: _fbT.clasificacionPublicada || false,
+      clasificacionFinal: _fbT.clasificacionFinal || null
+    };
+    renderPlayerView(shareData);
+  }
+
+  _guestTorneoRef = _db.ref(`catan_tournaments/${torneoId}`);
+  _guestResultsRef = _db.ref(`catan_results/${torneoId}`);
+
+  _guestTorneoRef.on('value', snap => {
+    const val = snap.val();
+    if (!val) {
       contenedor.innerHTML = `
         <div class="player-header"><div class="player-torneo-nombre">⚠️ Torneo no encontrado</div></div>
         <div class="panel" style="text-align:center;padding:2rem">
@@ -2719,28 +2752,9 @@ function cargarTorneoDesdeFirebase(torneoId) {
         </div>`;
       return;
     }
-    const results = resultsSnap.val() || {};
-    const rondasConResultados = (fbT.rondas || []).map(r => {
-      const resMesas = [];
-      (r.mesas || []).forEach((_, mi) => {
-        const key = `${r.numero}_${mi}`;
-        if (results[key]) resMesas[mi] = results[key];
-      });
-      return { ...r, resultadosMesas: resMesas };
-    });
-    const shareData = {
-      torneoId,
-      torneoNombre: fbT.torneoNombre,
-      tipo: fbT.tipo || 'oficial',
-      numRondas: fbT.numRondas || null,
-      desempate: fbT.desempate || [],
-      jugadores: fbT.jugadores || [],
-      rondas: rondasConResultados,
-      clasificacionPublicada: fbT.clasificacionPublicada || false,
-      clasificacionFinal: fbT.clasificacionFinal || null
-    };
-    renderPlayerView(shareData);
-  }).catch(e => {
+    _fbT = val;
+    _rebuildAndRender();
+  }, e => {
     contenedor.innerHTML = `
       <div class="player-header"><div class="player-torneo-nombre">⚠️ Error al cargar</div></div>
       <div class="panel" style="text-align:center;padding:2rem">
@@ -2749,6 +2763,11 @@ function cargarTorneoDesdeFirebase(torneoId) {
         <button class="btn-primary" style="margin-top:1.5rem"
           onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
       </div>`;
+  });
+
+  _guestResultsRef.on('value', snap => {
+    _results = snap.val() || {};
+    _rebuildAndRender();
   });
 }
 
