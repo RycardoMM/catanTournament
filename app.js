@@ -80,12 +80,14 @@ function fbActualizarTorneo(t) {
     tipo: t.tipo || 'oficial',
     numRondas: t.numRondas || null,
     desempate: t.metosDesempate || t.desempate || [],
-    jugadores: (t.jugadores || []).map(j => ({ id: j.id, nombre: j.nombre })),
+    jugadores: (t.jugadores || []).map(j => ({ id: j.id || null, nombre: j.nombre })),
     rondas: t.rondas.map(r => ({
       numero: r.numero,
-      sistema: r.sistema || null,          // evitar undefined → error Firebase
+      sistema: r.sistema || null,
       mesas: r.mesas.map(m => m.map(j => ({ id: j.id || null, nombre: j.nombre })))
-    }))
+    })),
+    clasificacionPublicada: t.clasificacionPublicada || false,
+    clasificacionFinal: t.clasificacionFinal || null
   });
 }
 
