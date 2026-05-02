@@ -50,6 +50,26 @@ function fbDetenerListener() {
   if (_fbListenerRef) { _fbListenerRef.off('value'); _fbListenerRef = null; }
 }
 
+// Sube a Firebase todos los resultados ya confirmados en localStorage que no estén aún en Firebase
+async function fbSincronizarResultadosExistentes(t) {
+  if (!FIREBASE_ENABLED || !_db) return;
+  const snap = await _db.ref(`catan_results/${t.id}`).once('value');
+  const existentes = snap.val() || {};
+  const promesas = [];
+  (t.rondas || []).forEach(r => {
+    (r.resultadosMesas || []).forEach((datos, mi) => {
+      if (!datos || !datos.length) return;
+      const key = `${r.numero}_${mi}`;
+      if (!existentes[key]) {
+        promesas.push(fbEnviarResultado(t.id, r.numero, mi, datos));
+      }
+    });
+  });
+  if (promesas.length) {
+    await Promise.all(promesas).catch(e => console.warn('fbSincronizar:', e.message));
+  }
+}
+
 function fbActualizarTorneo(t) {
   if (!_db) return;
   _db.ref(`catan_tournaments/${t.id}`).set({
@@ -1053,6 +1073,7 @@ function abrirDetalle(id) {
   renderDetalle();
   mostrarVista('detalle');
   fbIniciarListener(id); // escuchar resultados en tiempo real
+  fbSincronizarResultadosExistentes(state.torneoActivo); // subir resultados previos no sincronizados
 }
 
 document.getElementById('btnVolver').addEventListener('click', () => {
