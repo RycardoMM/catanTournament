@@ -862,7 +862,27 @@ function renderClasificacion(hastaRondaIdx, pagina) {
       }
     </div>` : '';
 
-  contenedor.innerHTML = bannerFin + `
+  // Panel sorteo (solo cuando el torneo está finalizado y se ve la clasificación completa)
+  const sorteoHtml = (finalizado && hastaRondaIdx === undefined) ? `
+    <div class="panel sorteo-panel" id="sorteoPanel">
+      <div class="panel-header">
+        <h3>🎲 Sorteo de premios</h3>
+      </div>
+      <div class="sorteo-body">
+        <label class="sorteo-opcion">
+          <input type="checkbox" id="sorteoExcluirTop3" />
+          <span>Excluir los 3 primeros clasificados</span>
+        </label>
+        <div class="sorteo-premios-row">
+          <label for="sorteoPremios">Número de premios</label>
+          <input type="number" id="sorteoPremios" min="1" max="50" value="1" class="sorteo-num-input" />
+        </div>
+        <button class="btn-success btn-sm" id="btnIniciarSorteo">🎲 Iniciar sorteo</button>
+      </div>
+      <div id="sorteoResultado" class="sorteo-resultado hidden"></div>
+    </div>` : '';
+
+  contenedor.innerHTML = bannerFin + sorteoHtml + `
     <table class="clasificacion-table">
       <thead>
         <tr>
@@ -903,6 +923,53 @@ function renderClasificacion(hastaRondaIdx, pagina) {
     renderClasificacion(hastaRondaIdx !== undefined ? hastaRondaIdx : idxFin, pag + 1)
   );
   contenedor.querySelector('.btn-publicar-clasif')?.addEventListener('click', publicarClasificacionFinal);
+
+  // Sorteo de premios
+  contenedor.querySelector('#btnIniciarSorteo')?.addEventListener('click', () => {
+    const excluirTop3 = document.getElementById('sorteoExcluirTop3').checked;
+    const numPremios  = Math.max(1, parseInt(document.getElementById('sorteoPremios').value) || 1);
+    const startIdx    = excluirTop3 ? 3 : 0;
+    const elegibles   = ordenados.slice(startIdx); // jugadores elegibles (con su posición original)
+
+    if (elegibles.length === 0) {
+      document.getElementById('sorteoResultado').innerHTML =
+        '<p class="sorteo-error">No hay participantes elegibles para el sorteo.</p>';
+      document.getElementById('sorteoResultado').classList.remove('hidden');
+      return;
+    }
+    const n = Math.min(numPremios, elegibles.length);
+
+    // Mezcla Fisher-Yates
+    const pool = elegibles.map((j, i) => ({ jugador: j, posicion: startIdx + i + 1 }));
+    for (let i = pool.length - 1; i > 0; i--) {
+      const r = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[r]] = [pool[r], pool[i]];
+    }
+    const ganadores = pool.slice(0, n);
+
+    // Revelar resultados de forma secuencial (1 cada 900ms)
+    const resultadoEl = document.getElementById('sorteoResultado');
+    resultadoEl.innerHTML = '';
+    resultadoEl.classList.remove('hidden');
+
+    const premioLabels = ['1er', '2º', '3er', '4º', '5º', '6º', '7º', '8º', '9º', '10º'];
+
+    ganadores.forEach((g, i) => {
+      setTimeout(() => {
+        const card = document.createElement('div');
+        card.className = 'sorteo-ganador sorteo-ganador-reveal';
+        card.innerHTML = `
+          <span class="sorteo-premio-label">${premioLabels[i] || `${i+1}º`} Premio</span>
+          <span class="sorteo-pos-num">#${g.posicion}</span>
+          <span class="sorteo-nombre">${escapeHtml(g.jugador.nombre)}</span>
+        `;
+        resultadoEl.appendChild(card);
+        // Forzar reflow para que la animación se dispare
+        void card.offsetWidth;
+        card.classList.add('sorteo-ganador-visible');
+      }, i * 900);
+    });
+  });
 }
 
 function renderHistorial() {
