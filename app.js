@@ -60,7 +60,7 @@ function fbActualizarTorneo(t) {
     jugadores: (t.jugadores || []).map(j => ({ id: j.id, nombre: j.nombre })),
     rondas: t.rondas.map(r => ({
       numero: r.numero,
-      sistema: r.sistema,
+      sistema: r.sistema || null,          // evitar undefined → error Firebase
       mesas: r.mesas.map(m => m.map(j => ({ id: j.id, nombre: j.nombre })))
     }))
   });
@@ -2229,7 +2229,7 @@ document.getElementById('btnCompartirTorneo').addEventListener('click', () => {
   let url;
   if (FIREBASE_ENABLED) {
     // URL corta: siempre carga datos frescos desde Firebase
-    fbActualizarTorneo(t);
+    try { fbActualizarTorneo(t); } catch(e) { console.warn('fbActualizarTorneo:', e.message); }
     url = window.location.href.split('#')[0] + '#tournament=' + t.id;
   } else {
     // Fallback sin Firebase: snapshot estático en la URL
