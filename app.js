@@ -589,6 +589,22 @@ function actualizarNumerosDesempate() {
   });
 }
 
+// --- Botones ▲▼ en desempate (para móvil, ya que drag no funciona en iOS) ---
+desempateList.addEventListener('click', (e) => {
+  const btnUp   = e.target.closest('.btn-empate-up');
+  const btnDown = e.target.closest('.btn-empate-down');
+  if (!btnUp && !btnDown) return;
+  const item  = e.target.closest('.desempate-item');
+  const items = [...desempateList.querySelectorAll('.desempate-item')];
+  const idx   = items.indexOf(item);
+  if (btnUp && idx > 0) {
+    items[idx - 1].before(item);
+  } else if (btnDown && idx < items.length - 1) {
+    items[idx + 1].after(item);
+  }
+  actualizarNumerosDesempate();
+});
+
 // --- Crear torneo ---
 document.getElementById('formTorneo').addEventListener('submit', (e) => {
   e.preventDefault();

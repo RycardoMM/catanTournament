@@ -238,23 +238,27 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Métodos de desempate <span class="hint">(arrastra para ordenar por prioridad)</span></label>
+          <label>Métodos de desempate <span class="hint">(arrastra o usa ▲▼ para ordenar)</span></label>
           <div class="desempate-list" id="desempateList">
             <div class="desempate-item" draggable="true" data-value="puntos_victoria">
               <span class="drag-handle">&#8597;</span><span class="desempate-num">1</span>
               <label>Jugador con más puntos de victoria</label>
+              <div class="empate-arrows"><button type="button" class="btn-empate-up">▲</button><button type="button" class="btn-empate-down">▼</button></div>
             </div>
             <div class="desempate-item" draggable="true" data-value="carretera_larga">
               <span class="drag-handle">&#8597;</span><span class="desempate-num">2</span>
               <label>Jugador con la carretera más larga</label>
+              <div class="empate-arrows"><button type="button" class="btn-empate-up">▲</button><button type="button" class="btn-empate-down">▼</button></div>
             </div>
             <div class="desempate-item" draggable="true" data-value="menos_recursos">
               <span class="drag-handle">&#8597;</span><span class="desempate-num">3</span>
               <label>Jugador con menos cartas de recursos</label>
+              <div class="empate-arrows"><button type="button" class="btn-empate-up">▲</button><button type="button" class="btn-empate-down">▼</button></div>
             </div>
             <div class="desempate-item" draggable="true" data-value="cartas_desarrollo">
               <span class="drag-handle">&#8597;</span><span class="desempate-num">4</span>
               <label>Jugador con más cartas de desarrollo</label>
+              <div class="empate-arrows"><button type="button" class="btn-empate-up">▲</button><button type="button" class="btn-empate-down">▼</button></div>
             </div>
           </div>
           <p class="hint">Arrastra para reordenar la prioridad.</p>
@@ -311,6 +315,6 @@
 <!-- Firebase SDK (real-time sync) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="app.js?v=12"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>

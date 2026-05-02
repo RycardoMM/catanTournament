@@ -285,6 +285,7 @@ main {
   padding: 2rem;
   width: 100%; max-width: 520px;
   max-height: 90vh; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
 }
 
@@ -344,6 +345,16 @@ main {
   border-radius: 6px; padding: 0.6rem 0.8rem;
   cursor: grab; user-select: none;
   transition: border-color 0.2s, background 0.2s;
+}
+
+/* Flechas ▲▼ del desempate: ocultas en escritorio (se usa drag), visibles en móvil */
+.desempate-item .empate-arrows {
+  display: none;
+  margin-left: auto;
+}
+@media (hover: none), (max-width: 768px) {
+  .desempate-item .empate-arrows { display: flex; }
+  .desempate-item { cursor: default; }
 }
 
 .desempate-item:active { cursor: grabbing; }
@@ -1925,4 +1936,136 @@ main {
 
   /* Modal título */
   .modal h2 { font-size: 1.25rem; }
+}
+
+/* =============================================
+   MOBILE UX FIXES
+   ============================================= */
+
+/* 1. Body scroll lock cuando hay modal abierto (evita que el fondo se desplace en iOS) */
+body:has(.modal-overlay:not(.hidden)) {
+  overflow: hidden;
+}
+
+/* El modal retiene el scroll para sí mismo (no propaga al body) */
+.modal-overlay {
+  overscroll-behavior: contain;
+}
+.modal {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+@media (max-width: 768px) {
+
+  /* 2. Fix iOS auto-zoom: iOS hace zoom si font-size < 16px al tocar un input */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* 3. Safe area insets — iPhone con notch / home indicator */
+  .sidebar {
+    padding-bottom: max(0.3rem, env(safe-area-inset-bottom, 0px));
+    height: calc(auto + env(safe-area-inset-bottom, 0px));
+  }
+  .content-area {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  #vistaJugador {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* 4. Touch targets mínimos — el estándar recomendado es 44×44px */
+  .btn-sm {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-back {
+    min-height: 40px;
+  }
+  .jugador-remove,
+  .btn-remove-mesa {
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 5. Botón cerrar modal — área de toque más grande */
+  .modal-close {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 1.8rem;
+  }
+
+  /* 6. Inputs de PV / criterios — font-size ya cubierto arriba, pero ajustar ancho */
+  .res-pv-input {
+    width: 64px;
+    min-height: 36px;
+  }
+  .crit-val-input {
+    width: 64px;
+    min-height: 36px;
+  }
+  .player-pv-input {
+    min-height: 44px;
+  }
+
+  /* 7. Scroll suave en la tabla de criterios del desempate */
+  .empate-crit-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 8. Panel header — evitar que los botones de acción desborden en pantallas estrechas */
+  .panel-header {
+    align-items: flex-start;
+  }
+  .panel-header h3 {
+    padding-top: 0.15rem;
+  }
+  .panel-actions {
+    flex-shrink: 0;
+  }
+
+  /* 9. Mapa opciones inline (tab Mapa) — apilar en columna */
+  .mapa-opciones-inline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  #btnGenerarMapaTorneo {
+    width: 100%;
+  }
+
+  /* 10. Tabla de clasificación — indicador visual de scroll horizontal */
+  #tablaClasificacion {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 11. Share URL input — seleccionar todo al tocar en móvil */
+  .share-url-wrap input {
+    cursor: pointer;
+    -webkit-user-select: all;
+    user-select: all;
+  }
+
+  /* 12. Desempate list en modal crear torneo — botones extra para reordenar */
+  .desempate-item {
+    min-height: 48px;
+  }
 }
