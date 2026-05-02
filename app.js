@@ -1371,11 +1371,20 @@ function _finalizarGuardadoResultado(rondaIdx, mesaIdx, datos) {
     const mismoPV = datos.filter(x => x !== r && x.pv === r.pv);
     r.desempateGanado = mismoPV.length > 0 && mismoPV.some(x => x.posicion > r.posicion);
   });
-  const ronda = state.torneoActivo.rondas[rondaIdx];
+  const t = state.torneoActivo;
+  const ronda = t.rondas[rondaIdx];
   ronda.resultadosMesas = ronda.resultadosMesas || [];
   ronda.resultadosMesas[mesaIdx] = datos;
   resultState.rondaIdx = null; resultState.mesaIdx = null;
   guardarEstado();
+
+  // Sincronizar con Firebase para que la vista jugador vea los resultados
+  if (FIREBASE_ENABLED && _db) {
+    fbEnviarResultado(t.id, ronda.numero, mesaIdx, datos)
+      .catch(e => console.warn('Error al sincronizar resultado:', e.message));
+    try { fbActualizarTorneo(t); } catch(e) { console.warn('fbActualizarTorneo:', e.message); }
+  }
+
   renderRondas();
   actualizarBtnRonda();
   if (detalleTabActiva === 'clasificacion') renderClasificacion();
