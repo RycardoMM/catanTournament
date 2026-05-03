@@ -1,0 +1,17 @@
+{
+  "name": "catan-torneo",
+  "version": "1.0.0",
+  "description": "Tests for Catan Torneo app",
+  "scripts": {
+    "test": "playwright test --project=chromium",
+    "test:all": "playwright test",
+    "test:watch": "chokidar \"app.js\" \"styles.css\" \"index.html\" \"tests/**/*.js\" --command \"npx playwright test --project=chromium\" --initial",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "chokidar-cli": "^3.0.0",
+    "serve": "^14.2.3"
+  }
+}

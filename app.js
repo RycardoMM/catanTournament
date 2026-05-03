@@ -160,6 +160,9 @@ function guardarEstado() {
 // Carga todos los torneos desde Firebase al arrancar (si localStorage está vacío o Firebase tiene más datos)
 async function cargarTorneosDesdeFirebase() {
   if (!FIREBASE_ENABLED || !_db) return;
+  // In test mode (sessionStorage._testMode set by test helpers), skip Firebase loading
+  // to avoid polluting tests with accumulated Firebase data from previous runs
+  if (sessionStorage.getItem('_testMode')) return;
   try {
     const snap = await _db.ref('catan_tournaments').once('value');
     const data = snap.val();
@@ -843,7 +846,11 @@ function calcularStats(t, rondas) {
         if (!stats[r.id]) return;
         stats[r.id].pv += r.pv || 0;
         if (r.posicion === 1) stats[r.id].primerPuesto++;
-        if (!esAmistoso) stats[r.id].torneoPoints += TORNEO_PUNTOS[r.posicion - 1] || 0;
+        if (!esAmistoso) {
+          stats[r.id].torneoPoints += TORNEO_PUNTOS[r.posicion - 1] || 0;
+        } else {
+          stats[r.id].torneoPoints += r.pv || 0; // amistoso: ranking basado en PV total
+        }
         if (r.desempateGanado) stats[r.id].desempateVictorias++;
       });
     });
@@ -1172,6 +1179,11 @@ function agregarJugador() {
   const nombre = input.value.trim();
   if (!nombre) return;
   const t = state.torneoActivo;
+  // Prevent duplicate names (case-insensitive)
+  if (t.jugadores.some(j => j.nombre.toLowerCase() === nombre.toLowerCase())) {
+    resaltarError('inputNombreJugador');
+    return;
+  }
   t.jugadores.push({ id: Date.now(), nombre });
   guardarEstado();
   input.value = '';
@@ -1393,7 +1405,7 @@ function generarRonda(t) {
   return { numero: t.rondas.length + 1, mesas, sinAsignar: [], sistema: esSuizo ? 'suizo' : 'aleatorio' };
 }
 
-const TORNEO_PUNTOS = [6, 4, 2, 1]; // por posición (1º→6, 2º→4, 3º→2, 4º→1)
+var TORNEO_PUNTOS = [6, 4, 2, 1]; // por posición (1º→6, 2º→4, 3º→2, 4º→1)
 
 // --- Resultados de mesas ---
 const resultState = { rondaIdx: null, mesaIdx: null };
@@ -2758,14 +2770,33 @@ function cargarTorneoDesdeFirebase(torneoId) {
       <div class="player-torneo-nombre">⏳ Cargando torneo...</div>
     </div>`;
 
+  // localStorage fast-path: render immediately from local data while Firebase loads
+  const _localTorneo = (JSON.parse(localStorage.getItem('catan_torneos') || '[]'))
+    .find(t => String(t.id) === String(torneoId));
+  if (_localTorneo) {
+    renderPlayerView({
+      torneoId,
+      torneoNombre: _localTorneo.nombre,
+      tipo: _localTorneo.tipo || 'oficial',
+      numRondas: _localTorneo.numRondas || null,
+      desempate: _localTorneo.metosDesempate || _localTorneo.desempate || [],
+      jugadores: _localTorneo.jugadores || [],
+      rondas: _localTorneo.rondas || [],
+      clasificacionPublicada: _localTorneo.clasificacionPublicada || false,
+      clasificacionFinal: _localTorneo.clasificacionFinal || null
+    });
+  }
+
   if (!_db) {
-    contenedor.innerHTML = `
-      <div class="player-header"><div class="player-torneo-nombre">⚠️ Sin conexión</div></div>
-      <div class="panel" style="text-align:center;padding:2rem">
-        <p>Firebase no disponible. Este enlace requiere conexión.</p>
-        <button class="btn-primary" style="margin-top:1.5rem"
-          onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
-      </div>`;
+    if (!_localTorneo) {
+      contenedor.innerHTML = `
+        <div class="player-header"><div class="player-torneo-nombre">⚠️ Sin conexión</div></div>
+        <div class="panel" style="text-align:center;padding:2rem">
+          <p>Firebase no disponible. Este enlace requiere conexión.</p>
+          <button class="btn-primary" style="margin-top:1.5rem"
+            onclick="window.location.hash='';window.location.reload()">Ir al inicio</button>
+        </div>`;
+    }
     return;
   }
 
@@ -2873,3 +2904,8 @@ if (!checkShareMode()) {
   renderTorneos();
   cargarTorneosDesdeFirebase(); // Cargar torneos desde Firebase si hay nuevos
 }
+
+// Handle hash changes (e.g. navigating to /#tournament= via SPA routing)
+window.addEventListener('hashchange', () => {
+  checkShareMode();
+});
