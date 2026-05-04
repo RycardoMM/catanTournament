@@ -41,10 +41,23 @@
           <button class="btn-primary" id="btnCrearTorneo">+ Crear Torneo</button>
         </section>
         <section class="torneos-activos">
-          <h3>Torneos activos</h3>
+          <div class="torneos-activos-header">
+            <h3>Torneos activos</h3>
+            <div class="torneos-header-acciones" id="torneosHeaderAcciones">
+              <button class="btn-sm btn-outline" id="btnModoSeleccion">☑ Seleccionar</button>
+              <button class="btn-sm btn-outline btn-danger-outline" id="btnBorrarTodos">🗑 Borrar todos</button>
+            </div>
+          </div>
+          <div id="barraSeleccion" class="barra-seleccion hidden">
+            <span id="contadorSeleccion">0 seleccionados</span>
+            <button class="btn-sm btn-outline" id="btnSeleccionarTodos">Seleccionar todos</button>
+            <button class="btn-sm btn-outline btn-danger-outline" id="btnBorrarSeleccionados" disabled>🗑 Borrar seleccionados</button>
+            <button class="btn-sm btn-outline" id="btnCancelarSeleccion">Cancelar</button>
+          </div>
           <div id="listaTorneos" class="lista-torneos">
             <p class="empty-state">No hay torneos creados aún.</p>
           </div>
+          <div id="paginacionTorneos" class="paginacion-torneos hidden"></div>
         </section>
       </main>
 

@@ -767,16 +767,45 @@ function resaltarError(id) {
   setTimeout(() => el.style.borderColor = '', 1500);
 }
 
+// --- Paginación y selección de torneos ---
+const TORNEOS_POR_PAGINA = 6;
+let _paginaTorneos = 0;
+let _modoSeleccion = false;
+let _torneosSeleccionados = new Set();
+
 // --- Render torneos (inicio) ---
 function renderTorneos() {
-  const lista = document.getElementById('listaTorneos');
+  const lista      = document.getElementById('listaTorneos');
+  const paginacion = document.getElementById('paginacionTorneos');
+  const headerAcc  = document.getElementById('torneosHeaderAcciones');
+  const barra      = document.getElementById('barraSeleccion');
+
   if (state.torneos.length === 0) {
     lista.innerHTML = '<p class="empty-state">No hay torneos creados aún.</p>';
+    paginacion.classList.add('hidden');
+    headerAcc.classList.add('hidden');
+    barra.classList.add('hidden');
+    _modoSeleccion = false;
+    _torneosSeleccionados.clear();
     return;
   }
-  lista.innerHTML = state.torneos.map(t => `
-    <div class="torneo-card" data-id="${t.id}">
-      <button class="btn-delete-torneo" data-id="${t.id}" title="Eliminar torneo">🗑</button>
+
+  headerAcc.classList.remove('hidden');
+
+  const totalPaginas = Math.ceil(state.torneos.length / TORNEOS_POR_PAGINA);
+  if (_paginaTorneos >= totalPaginas) _paginaTorneos = Math.max(0, totalPaginas - 1);
+
+  const inicio  = _paginaTorneos * TORNEOS_POR_PAGINA;
+  const pagina  = state.torneos.slice(inicio, inicio + TORNEOS_POR_PAGINA);
+
+  lista.innerHTML = pagina.map(t => {
+    const seleccionado = _torneosSeleccionados.has(String(t.id));
+    return `
+    <div class="torneo-card${_modoSeleccion ? ' seleccionable' : ''}${seleccionado ? ' seleccionado' : ''}" data-id="${t.id}">
+      ${_modoSeleccion
+        ? `<input type="checkbox" class="card-checkbox" data-id="${t.id}" ${seleccionado ? 'checked' : ''}>`
+        : `<button class="btn-delete-torneo" data-id="${t.id}" title="Eliminar torneo">🗑</button>`
+      }
       <h4>${escapeHtml(t.nombre)}</h4>
       <p class="meta">👥 ${t.numJugadores} jugadores · ${t.jugadoresPorPartida} por partida</p>
       <p class="meta">🎲 ${formatFormato(t.formato)} · ${t.tipo === 'amistoso' ? '🤝 Amistoso' : '🏅 Oficial'}</p>
@@ -784,21 +813,118 @@ function renderTorneos() {
       <p class="meta">🏆 Desempate: ${(t.metosDesempate || t.desempate || []).map(formatDesempate).join(' › ')}</p>
       <div class="card-footer">
         <span class="badge">${t.estado}</span>
-        <button class="btn-sm btn-outline btn-gestionar" data-id="${t.id}">Gestionar →</button>
+        ${!_modoSeleccion ? `<button class="btn-sm btn-outline btn-gestionar" data-id="${t.id}">Gestionar →</button>` : ''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
-  lista.querySelectorAll('.btn-gestionar').forEach(btn => {
-    btn.addEventListener('click', () => abrirDetalle(btn.dataset.id));
-  });
-  lista.querySelectorAll('.btn-delete-torneo').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      eliminarTorneo(btn.dataset.id);
+  // Eventos según modo
+  if (_modoSeleccion) {
+    lista.querySelectorAll('.torneo-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('card-checkbox')) return;
+        _toggleSeleccion(card.dataset.id);
+      });
     });
+    lista.querySelectorAll('.card-checkbox').forEach(chk => {
+      chk.addEventListener('change', () => _toggleSeleccion(chk.dataset.id));
+    });
+    _actualizarBarraSeleccion();
+  } else {
+    lista.querySelectorAll('.btn-gestionar').forEach(btn => {
+      btn.addEventListener('click', () => abrirDetalle(btn.dataset.id));
+    });
+    lista.querySelectorAll('.btn-delete-torneo').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        eliminarTorneo(btn.dataset.id);
+      });
+    });
+  }
+
+  // Paginación
+  if (totalPaginas > 1) {
+    paginacion.classList.remove('hidden');
+    paginacion.innerHTML = `
+      <button id="btnPagAnt" ${_paginaTorneos === 0 ? 'disabled' : ''}>← Anterior</button>
+      <span class="pagina-info">Página ${_paginaTorneos + 1} de ${totalPaginas}</span>
+      <button id="btnPagSig" ${_paginaTorneos >= totalPaginas - 1 ? 'disabled' : ''}>Siguiente →</button>`;
+    document.getElementById('btnPagAnt').addEventListener('click', () => { _paginaTorneos--; renderTorneos(); });
+    document.getElementById('btnPagSig').addEventListener('click', () => { _paginaTorneos++; renderTorneos(); });
+  } else {
+    paginacion.classList.add('hidden');
+  }
+}
+
+function _toggleSeleccion(id) {
+  const sid = String(id);
+  if (_torneosSeleccionados.has(sid)) _torneosSeleccionados.delete(sid);
+  else _torneosSeleccionados.add(sid);
+  renderTorneos();
+}
+
+function _actualizarBarraSeleccion() {
+  const barra     = document.getElementById('barraSeleccion');
+  const contador  = document.getElementById('contadorSeleccion');
+  const btnBorrar = document.getElementById('btnBorrarSeleccionados');
+  const n = _torneosSeleccionados.size;
+  barra.classList.toggle('hidden', !_modoSeleccion);
+  if (_modoSeleccion) {
+    contador.textContent = `${n} seleccionado${n !== 1 ? 's' : ''}`;
+    btnBorrar.disabled = n === 0;
+  }
+}
+
+function _activarModoSeleccion() {
+  _modoSeleccion = true;
+  _torneosSeleccionados.clear();
+  document.getElementById('btnModoSeleccion').textContent = '✕ Cancelar';
+  renderTorneos();
+}
+
+function _desactivarModoSeleccion() {
+  _modoSeleccion = false;
+  _torneosSeleccionados.clear();
+  document.getElementById('btnModoSeleccion').textContent = '☑ Seleccionar';
+  document.getElementById('barraSeleccion').classList.add('hidden');
+  renderTorneos();
+}
+
+function _eliminarIds(ids) {
+  const set = new Set(ids.map(String));
+  if (set.size === 0) return;
+  const nombres = state.torneos.filter(t => set.has(String(t.id))).map(t => `"${t.nombre}"`);
+  const msg = nombres.length === 1
+    ? `¿Eliminar ${nombres[0]}?`
+    : `¿Eliminar ${nombres.length} torneos?`;
+  mostrarConfirm(msg, 'Esta acción no se puede deshacer.', () => {
+    state.torneos = state.torneos.filter(t => !set.has(String(t.id)));
+    if (state.torneoActivo && set.has(String(state.torneoActivo.id))) state.torneoActivo = null;
+    guardarEstado();
+    if (_db) ids.forEach(id => {
+      _db.ref(`catan_tournaments/${id}`).remove();
+      _db.ref(`catan_results/${id}`).remove();
+    });
+    _desactivarModoSeleccion();
   });
 }
+
+// Wirear botones de selección/bulk
+document.getElementById('btnModoSeleccion').addEventListener('click', () => {
+  _modoSeleccion ? _desactivarModoSeleccion() : _activarModoSeleccion();
+});
+document.getElementById('btnBorrarTodos').addEventListener('click', () => {
+  if (state.torneos.length === 0) return;
+  _eliminarIds(state.torneos.map(t => t.id));
+});
+document.getElementById('btnSeleccionarTodos').addEventListener('click', () => {
+  state.torneos.forEach(t => _torneosSeleccionados.add(String(t.id)));
+  renderTorneos();
+});
+document.getElementById('btnBorrarSeleccionados').addEventListener('click', () => {
+  _eliminarIds([..._torneosSeleccionados]);
+});
+document.getElementById('btnCancelarSeleccion').addEventListener('click', _desactivarModoSeleccion);
 
 let _confirmCallback = null;
 
@@ -831,24 +957,7 @@ document.getElementById('modalConfirm').addEventListener('click', (e) => {
 });
 
 function eliminarTorneo(id) {
-  const torneo = state.torneos.find(t => String(t.id) === String(id));
-  if (!torneo) return;
-  mostrarConfirm(
-    `¿Eliminar "${torneo.nombre}"?`,
-    'Esta acción no se puede deshacer.',
-    () => {
-      state.torneos = state.torneos.filter(t => String(t.id) !== String(id));
-      if (state.torneoActivo && String(state.torneoActivo.id) === String(id)) {
-        state.torneoActivo = null;
-      }
-      guardarEstado();
-      renderTorneos();
-      if (_db) {
-        _db.ref(`catan_tournaments/${id}`).remove();
-        _db.ref(`catan_results/${id}`).remove();
-      }
-    }
-  );
+  _eliminarIds([id]);
 }
 
 // --- Tabs del detalle ---
