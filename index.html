@@ -28,6 +28,10 @@
         <span class="sidebar-icon">🗺</span>
         <span>Generar mapa</span>
       </button>
+      <button class="sidebar-item" data-section="jugar">
+        <span class="sidebar-icon">🎮</span>
+        <span>Jugar</span>
+      </button>
     </nav>
 
     <!-- CONTENT AREA -->
@@ -201,12 +205,180 @@
 
       </main>
 
+      <!-- VISTA JUGAR PARTIDA -->
+      <main id="vistaPartida" class="hidden">
+
+        <!-- SETUP -->
+        <div id="setupPartida">
+          <div class="jugar-header">
+            <h2>🎮 Nueva Partida</h2>
+            <p class="jugar-subtitle">Asistente para partida física de Catan</p>
+          </div>
+          <div class="setup-form">
+            <div class="form-group">
+              <label>Número de jugadores</label>
+              <div class="num-players-btns" id="numPlayersSelector">
+                <button class="num-player-btn active" data-n="2">2</button>
+                <button class="num-player-btn" data-n="3">3</button>
+                <button class="num-player-btn" data-n="4">4</button>
+              </div>
+            </div>
+            <div id="playerInputs" class="player-inputs"></div>
+            <button class="btn-primary" id="btnIniciarPartida" style="width:100%;margin-top:1rem">▶ Iniciar partida</button>
+          </div>
+        </div>
+
+        <!-- JUEGO ACTIVO -->
+        <div id="juegoActivo" class="hidden">
+          <div class="juego-topbar">
+            <div class="turno-info">
+              <span class="turno-label">Turno de</span>
+              <span id="turnoJugador" class="turno-nombre"></span>
+              <span id="turnoBadge" class="fase-badge"></span>
+            </div>
+            <div class="juego-topbar-right">
+              <button class="btn-sm btn-outline" id="btnNuevaPartida">↺ Nueva partida</button>
+            </div>
+          </div>
+
+          <div class="juego-grid">
+            <!-- COLUMNA IZQUIERDA: dados + acciones -->
+            <div class="juego-col-left">
+              <div class="dados-card">
+                <div class="dado-pair" id="dadoPair">
+                  <div class="dado" id="dado1">?</div>
+                  <div class="dado" id="dado2">?</div>
+                </div>
+                <div class="dado-total" id="dadoTotal">—</div>
+                <button class="btn-primary btn-dados" id="btnLanzarDados">🎲 Lanzar dados</button>
+              </div>
+
+              <div class="acciones-card">
+                <h4>Acciones</h4>
+                <div class="acciones-grid">
+                  <button class="btn-accion" id="btnConstruir" disabled>🏗 Construir</button>
+                  <button class="btn-accion" id="btnComerciar" disabled>🤝 Comerciar</button>
+                  <button class="btn-accion" id="btnComprarCarta" disabled>🃏 Carta des.</button>
+                  <button class="btn-accion" id="btnJugarCarta" disabled>⚡ Jugar carta</button>
+                </div>
+                <button class="btn-primary btn-endturn" id="btnTerminarTurno" disabled>Terminar turno →</button>
+              </div>
+
+              <div class="estadisticas-card">
+                <h4>Bonificaciones</h4>
+                <div class="bonus-row" id="bonusCaminoLargo">
+                  <span class="bonus-icon">🛤</span>
+                  <div class="bonus-info">
+                    <span class="bonus-name">Camino más largo</span>
+                    <span class="bonus-owner" id="caminoLargoOwner">—</span>
+                  </div>
+                  <span class="bonus-vp">+2 VP</span>
+                  <button class="btn-sm btn-outline btn-bonus" id="btnReclamarCamino">Asignar</button>
+                </div>
+                <div class="bonus-row" id="bonusEjercito">
+                  <span class="bonus-icon">⚔</span>
+                  <div class="bonus-info">
+                    <span class="bonus-name">Ejército más grande</span>
+                    <span class="bonus-owner" id="ejercitoOwner">—</span>
+                  </div>
+                  <span class="bonus-vp">+2 VP</span>
+                </div>
+              </div>
+
+              <div class="log-card">
+                <h4>Registro</h4>
+                <div id="gameLog" class="game-log"></div>
+              </div>
+            </div>
+
+            <!-- COLUMNA DERECHA: jugadores -->
+            <div class="juego-col-right">
+              <div id="playersGrid" class="players-grid"></div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
     </div>
   </div>
 
   <!-- VISTA JUGADOR (enlace compartido) -->
   <div id="vistaJugador" class="hidden">
     <div id="playerViewContent"></div>
+  </div>
+
+  <!-- Modal: Construir -->
+  <div class="modal-overlay hidden" id="modalConstruir">
+    <div class="modal modal-juego">
+      <button class="modal-close" id="btnCerrarConstruir">&times;</button>
+      <h2>🏗 Construir</h2>
+      <div id="opcionesConstruir" class="opciones-construir"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Comerciar -->
+  <div class="modal-overlay hidden" id="modalComerciar">
+    <div class="modal modal-juego">
+      <button class="modal-close" id="btnCerrarComerciar">&times;</button>
+      <h2>🤝 Comerciar</h2>
+      <div class="comercio-tabs">
+        <button class="comercio-tab active" data-tab="banco">Banco / Puerto</button>
+        <button class="comercio-tab" data-tab="jugador">Entre jugadores</button>
+      </div>
+      <div id="comercioBanco" class="comercio-panel"></div>
+      <div id="comercioJugador" class="comercio-panel hidden">
+        <p class="comercio-nota">Intercambio libre — acordad los recursos entre los jugadores y ajustad manualmente con los botones +/−.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Carta de desarrollo -->
+  <div class="modal-overlay hidden" id="modalCartaDev">
+    <div class="modal modal-juego">
+      <button class="modal-close" id="btnCerrarCartaDev">&times;</button>
+      <h2 id="cartaDevTitulo"></h2>
+      <div id="cartaDevContenido"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Descarte (tirada de 7) -->
+  <div class="modal-overlay hidden" id="modalDescarte">
+    <div class="modal modal-juego">
+      <h2>🦹 Ladrón — Tirada de 7</h2>
+      <div id="descarteContenido"></div>
+      <button class="btn-primary" id="btnDescarteOk" style="width:100%;margin-top:1rem">Continuar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Asignar camino más largo -->
+  <div class="modal-overlay hidden" id="modalCamino">
+    <div class="modal modal-juego">
+      <button class="modal-close" id="btnCerrarCamino">&times;</button>
+      <h2>🛤 Camino más largo</h2>
+      <p class="comercio-nota">El camino más largo requiere mínimo 5 caminos consecutivos y da +2 VP.</p>
+      <div id="caminoOpciones" class="opciones-list"></div>
+      <button class="btn-sm btn-outline btn-danger-outline" id="btnQuitarCamino" style="width:100%;margin-top:0.5rem">Sin propietario</button>
+    </div>
+  </div>
+
+  <!-- Modal: Jugar carta de desarrollo -->
+  <div class="modal-overlay hidden" id="modalJugarCarta">
+    <div class="modal modal-juego">
+      <button class="modal-close" id="btnCerrarJugarCarta">&times;</button>
+      <h2>⚡ Jugar carta</h2>
+      <div id="listaCartasJugador" class="opciones-list"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Ganador -->
+  <div class="modal-overlay hidden" id="modalGanador">
+    <div class="modal modal-juego" style="text-align:center">
+      <div style="font-size:3rem">🏆</div>
+      <h2 id="ganadorNombre" style="font-size:1.8rem;margin:0.5rem 0"></h2>
+      <p id="ganadorVP" style="color:var(--text-muted)"></p>
+      <button class="btn-primary" id="btnGanadorOk" style="width:100%;margin-top:1.5rem">Nueva partida</button>
+    </div>
   </div>
 
   <!-- Modal crear torneo -->

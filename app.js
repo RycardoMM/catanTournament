@@ -243,18 +243,23 @@ document.querySelectorAll('.sidebar-item').forEach(btn => {
 
 function mostrarSeccion(seccion) {
   state.seccion = seccion;
-  // Persistir en localStorage (estado de UI, no crítico)
   _lsSet('ui_seccion', seccion);
   document.querySelectorAll('.sidebar-item').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.section === seccion)
   );
-  const esMapa = seccion === 'mapa';
-  if (esMapa) {
+  if (seccion === 'mapa') {
     document.getElementById('vistaInicio').classList.add('hidden');
     document.getElementById('vistaDetalle').classList.add('hidden');
     document.getElementById('vistaMapa').classList.remove('hidden');
+    document.getElementById('vistaPartida').classList.add('hidden');
+  } else if (seccion === 'jugar') {
+    document.getElementById('vistaInicio').classList.add('hidden');
+    document.getElementById('vistaDetalle').classList.add('hidden');
+    document.getElementById('vistaMapa').classList.add('hidden');
+    document.getElementById('vistaPartida').classList.remove('hidden');
   } else {
     document.getElementById('vistaMapa').classList.add('hidden');
+    document.getElementById('vistaPartida').classList.add('hidden');
     mostrarVista(state.torneoActivo ? 'detalle' : 'inicio');
   }
 }
@@ -264,6 +269,7 @@ function mostrarVista(vista) {
   document.getElementById('vistaInicio').classList.toggle('hidden', vista !== 'inicio');
   document.getElementById('vistaDetalle').classList.toggle('hidden', vista !== 'detalle');
   document.getElementById('vistaMapa').classList.add('hidden');
+  document.getElementById('vistaPartida').classList.add('hidden');
 }
 
 // =============================================
@@ -3065,3 +3071,597 @@ if (!checkShareMode()) {
 window.addEventListener('hashchange', () => {
   checkShareMode();
 });
+
+// =============================================
+// MÓDULO: JUGAR PARTIDA (Asistente físico Catan)
+// =============================================
+
+const COLORES_JUGADOR = ['#e74c3c','#3498db','#f39c12','#27ae60'];
+const COLORES_NOMBRES = ['Rojo','Azul','Naranja','Verde'];
+const RES = { lumber:'🪵 Madera', brick:'🧱 Arcilla', wool:'🐑 Lana', grain:'🌾 Cereal', ore:'⛏ Mineral' };
+const RES_KEYS = ['lumber','brick','wool','grain','ore'];
+
+const COSTOS = {
+  road:       { lumber:1, brick:1 },
+  settlement: { lumber:1, brick:1, wool:1, grain:1 },
+  city:       { grain:2, ore:3 },
+  devcard:    { ore:1, wool:1, grain:1 },
+};
+
+const DEV_DECK_COUNTS = { knight:14, roadBuilding:2, yearOfPlenty:2, monopoly:2, vpCard:5 };
+const DEV_NAMES = { knight:'Caballero', roadBuilding:'Construcción de caminos', yearOfPlenty:'Año de abundancia', monopoly:'Monopolio', vpCard:'Punto de victoria' };
+const DEV_DESC  = {
+  knight:       'Mueve el ladrón a cualquier tile. Roba un recurso de un jugador adyacente.',
+  roadBuilding: 'Coloca 2 caminos gratis como si los acabases de construir.',
+  yearOfPlenty: 'Toma cualquier 2 recursos del banco.',
+  monopoly:     'Elige un tipo de recurso. Todos los jugadores te dan todos sus recursos de ese tipo.',
+  vpCard:       '+1 Punto de Victoria (se revela al ganar).',
+};
+
+let gj = null; // gameState activo
+
+function _nuevoMazo() {
+  const d = [];
+  Object.entries(DEV_DECK_COUNTS).forEach(([t,n]) => { for(let i=0;i<n;i++) d.push(t); });
+  for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
+  return d;
+}
+
+function _inicializarJuego(jugadores) {
+  gj = {
+    jugadores: jugadores.map((j,i) => ({
+      id: i, nombre: j.nombre, color: COLORES_JUGADOR[i],
+      recursos: { lumber:0, brick:0, wool:0, grain:0, ore:0 },
+      settlements: 0, cities: 0, roads: 0,
+      knights: 0, devMano: [], devJugadas: [],
+      puertos: [], // '3:1' | 'lumber' | 'brick' | 'wool' | 'grain' | 'ore'
+    })),
+    turnoIdx: 0,
+    fase: 'main', // 'main' | 'ended'
+    dadoLanzado: false,
+    cartaJugadaEsteTurno: false,
+    cartaCompradaEsteTurno: false,
+    caminoLargoIdx: null, caminoLargoLen: 4,
+    ejercitoIdx: null, ejercitoSize: 2,
+    mazo: _nuevoMazo(),
+    log: [],
+  };
+  _logJuego('Partida iniciada. ¡Que comience Catan!');
+  renderPartida();
+}
+
+function _logJuego(msg) {
+  if (!gj) return;
+  gj.log.unshift(`<span class="log-time">${new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}</span> ${msg}`);
+  if (gj.log.length > 50) gj.log.pop();
+  const el = document.getElementById('gameLog');
+  if (el) el.innerHTML = gj.log.join('<hr class="log-sep">');
+}
+
+function _totalRecursos(j) {
+  return RES_KEYS.reduce((s,k) => s + j.recursos[k], 0);
+}
+
+function _calcularVP(j) {
+  let vp = j.settlements + j.cities * 2;
+  vp += j.devJugadas.filter(c => c === 'vpCard').length;
+  vp += j.devMano.filter(c => c === 'vpCard').length;
+  if (gj.caminoLargoIdx === j.id) vp += 2;
+  if (gj.ejercitoIdx === j.id) vp += 2;
+  return vp;
+}
+
+function _jugadorActual() { return gj?.jugadores[gj.turnoIdx]; }
+
+function _puedeComprarDevCard(j) {
+  return j.recursos.ore >= 1 && j.recursos.wool >= 1 && j.recursos.grain >= 1 && gj.mazo.length > 0;
+}
+
+function _tieneCartasJugables(j) {
+  return j.devMano.filter(c => c !== 'vpCard' && !gj.cartaJugadaEsteTurno).length > 0;
+}
+
+// --- RENDER PRINCIPAL ---
+function renderPartida() {
+  if (!gj) return;
+  const j = _jugadorActual();
+  document.getElementById('turnoJugador').textContent = j.nombre;
+  document.getElementById('turnoJugador').style.color = j.color;
+  document.getElementById('turnoBadge').textContent = gj.dadoLanzado ? 'Fase acción' : 'Lanzar dados';
+  document.getElementById('turnoBadge').className = 'fase-badge ' + (gj.dadoLanzado ? 'fase-accion' : 'fase-dados');
+
+  // Botones acciones
+  document.getElementById('btnLanzarDados').disabled = gj.dadoLanzado || gj.fase === 'ended';
+  document.getElementById('btnConstruir').disabled   = !gj.dadoLanzado || gj.fase === 'ended';
+  document.getElementById('btnComerciar').disabled   = !gj.dadoLanzado || gj.fase === 'ended';
+  document.getElementById('btnComprarCarta').disabled = !gj.dadoLanzado || !_puedeComprarDevCard(j) || gj.fase === 'ended';
+  document.getElementById('btnJugarCarta').disabled  = !_tieneCartasJugables(j) || gj.cartaJugadaEsteTurno || gj.fase === 'ended';
+  document.getElementById('btnTerminarTurno').disabled = !gj.dadoLanzado || gj.fase === 'ended';
+
+  // Bonificaciones
+  document.getElementById('caminoLargoOwner').textContent = gj.caminoLargoIdx !== null
+    ? gj.jugadores[gj.caminoLargoIdx].nombre : '—';
+  document.getElementById('ejercitoOwner').textContent = gj.ejercitoIdx !== null
+    ? gj.jugadores[gj.ejercitoIdx].nombre : '—';
+
+  // Jugadores
+  renderPlayersGrid();
+}
+
+function renderPlayersGrid() {
+  const grid = document.getElementById('playersGrid');
+  grid.innerHTML = gj.jugadores.map(j => {
+    const vp = _calcularVP(j);
+    const isCurrent = j.id === gj.turnoIdx;
+    const total = _totalRecursos(j);
+    return `
+    <div class="player-card-game ${isCurrent ? 'player-current' : ''}" style="border-color:${j.color}">
+      <div class="pcg-header" style="background:${j.color}22">
+        <span class="pcg-nombre" style="color:${j.color}">${escapeHtml(j.nombre)}</span>
+        <span class="pcg-vp" title="Puntos de victoria">${vp} VP</span>
+      </div>
+      <div class="pcg-resources">
+        ${RES_KEYS.map(k => `
+          <div class="res-row">
+            <span class="res-icon">${RES[k].split(' ')[0]}</span>
+            <span class="res-name">${RES[k].split(' ')[1]}</span>
+            <button class="res-btn res-minus" data-pid="${j.id}" data-res="${k}" ${j.recursos[k]===0?'disabled':''}>−</button>
+            <span class="res-count ${j.recursos[k]>0?'res-has':''}">${j.recursos[k]}</span>
+            <button class="res-btn res-plus" data-pid="${j.id}" data-res="${k}">+</button>
+          </div>`).join('')}
+        <div class="res-total">Total: <strong>${total}</strong> cartas</div>
+      </div>
+      <div class="pcg-estructuras">
+        <span title="Poblados">🏠 ${j.settlements}</span>
+        <button class="pcg-struct-btn" data-pid="${j.id}" data-action="addSettlement" title="Añadir poblado">+🏠</button>
+        <span title="Ciudades">🏙 ${j.cities}</span>
+        <button class="pcg-struct-btn" data-pid="${j.id}" data-action="addCity" title="Construir ciudad (convierte poblado)" ${j.settlements===0?'disabled':''}>+🏙</button>
+        <span title="Caminos">🛤 ${j.roads}</span>
+        <button class="pcg-struct-btn" data-pid="${j.id}" data-action="addRoad" title="Añadir camino">+🛤</button>
+      </div>
+      <div class="pcg-cards">
+        <span title="Caballeros jugados">⚔ ${j.knights}</span>
+        <span title="Cartas en mano">${j.devMano.length > 0 ? '🃏 ' + j.devMano.map(c=>DEV_NAMES[c]).join(', ') : '🃏 —'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Resource +/- events
+  grid.querySelectorAll('.res-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = parseInt(btn.dataset.pid);
+      const res = btn.dataset.res;
+      const j = gj.jugadores[pid];
+      if (btn.classList.contains('res-plus')) {
+        j.recursos[res]++;
+        _logJuego(`${j.nombre} +1 ${RES[res]}`);
+      } else if (j.recursos[res] > 0) {
+        j.recursos[res]--;
+        _logJuego(`${j.nombre} −1 ${RES[res]}`);
+      }
+      renderPlayersGrid();
+      renderPartida();
+    });
+  });
+
+  // Estructura events
+  grid.querySelectorAll('.pcg-struct-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = parseInt(btn.dataset.pid);
+      const j = gj.jugadores[pid];
+      if (btn.dataset.action === 'addSettlement') { j.settlements++; _logJuego(`${j.nombre} construyó un 🏠 poblado`); }
+      if (btn.dataset.action === 'addCity' && j.settlements > 0) {
+        j.settlements--; j.cities++;
+        _logJuego(`${j.nombre} construyó una 🏙 ciudad`);
+      }
+      if (btn.dataset.action === 'addRoad') { j.roads++; _logJuego(`${j.nombre} construyó un 🛤 camino`); }
+      _comprobarEjercito();
+      _comprobarVictoria();
+      renderPartida();
+    });
+  });
+}
+
+// --- DADOS ---
+const DADO_FACES = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+
+function lanzarDados() {
+  const d1 = Math.ceil(Math.random()*6);
+  const d2 = Math.ceil(Math.random()*6);
+  const total = d1 + d2;
+  document.getElementById('dado1').textContent = DADO_FACES[d1];
+  document.getElementById('dado2').textContent = DADO_FACES[d2];
+  document.getElementById('dado1').className = 'dado dado-animate';
+  document.getElementById('dado2').className = 'dado dado-animate';
+  setTimeout(() => {
+    document.getElementById('dado1').className = 'dado';
+    document.getElementById('dado2').className = 'dado';
+  }, 500);
+  document.getElementById('dadoTotal').textContent = total;
+  gj.dadoLanzado = true;
+  const j = _jugadorActual();
+  _logJuego(`${j.nombre} lanzó los dados: ${DADO_FACES[d1]} ${DADO_FACES[d2]} = <strong>${total}</strong>`);
+
+  if (total === 7) {
+    _procesarLadron();
+  } else {
+    _logJuego(`Número ${total} — distribuir recursos de los tiles con ese número.`);
+  }
+  renderPartida();
+}
+
+function _procesarLadron() {
+  const conMuchos = gj.jugadores.filter(j => _totalRecursos(j) >= 8);
+  if (conMuchos.length === 0) {
+    _logJuego(`🦹 ¡Ladrón! No hay jugadores con 8+ cartas. Mueve el ladrón.`);
+    return;
+  }
+  let html = '<p>Los siguientes jugadores tienen 8 o más cartas y deben descartar la mitad (redondeando hacia abajo):</p><div class="descarte-list">';
+  conMuchos.forEach(j => {
+    const total = _totalRecursos(j);
+    const descartar = Math.floor(total / 2);
+    html += `<div class="descarte-jugador">
+      <span style="color:${j.color};font-weight:700">${escapeHtml(j.nombre)}</span>
+      <span>${total} cartas → descartar <strong>${descartar}</strong></span>
+    </div>`;
+  });
+  html += '</div><p style="margin-top:0.75rem;color:var(--text-muted)">Ajusta manualmente los recursos de cada jugador con los botones +/−.</p>';
+  document.getElementById('descarteContenido').innerHTML = html;
+  document.getElementById('modalDescarte').classList.remove('hidden');
+  conMuchos.forEach(j => _logJuego(`🦹 ${j.nombre} debe descartar ${Math.floor(_totalRecursos(j)/2)} cartas`));
+}
+
+document.getElementById('btnDescarteOk').addEventListener('click', () => {
+  document.getElementById('modalDescarte').classList.add('hidden');
+  _logJuego('Ladrón movido. Roba un recurso de un jugador adyacente si aplica.');
+});
+
+// --- CONSTRUIR ---
+function abrirConstruir() {
+  const j = _jugadorActual();
+  const opts = [
+    { key:'road', label:'🛤 Camino', desc:'Madera + Arcilla', limite:'Max 15 caminos' },
+    { key:'settlement', label:'🏠 Poblado', desc:'Madera + Arcilla + Lana + Cereal', limite:'Max 5 poblados' },
+    { key:'city', label:'🏙 Ciudad', desc:'2 Cereal + 3 Mineral (convierte poblado)', limite:'Max 4 ciudades', disabled: j.settlements===0 },
+    { key:'devcard', label:'🃏 Carta de desarrollo', desc:'Mineral + Lana + Cereal', limite:`${gj.mazo.length} cartas restantes` },
+  ];
+  const costoHtml = (costo) => Object.entries(costo).map(([r,n]) => `${n}× ${RES[r]}`).join(', ');
+  const tieneRecursos = (costo) => RES_KEYS.every(k => (j.recursos[k]||0) >= (costo[k]||0));
+
+  document.getElementById('opcionesConstruir').innerHTML = opts.map(o => {
+    const puede = tieneRecursos(COSTOS[o.key]) && !o.disabled && (o.key!=='devcard' || gj.mazo.length>0);
+    return `<div class="opcion-construir ${puede?'':'opcion-disabled'}">
+      <div class="opcion-info">
+        <span class="opcion-label">${o.label}</span>
+        <span class="opcion-desc">${costoHtml(COSTOS[o.key])}</span>
+        <span class="opcion-limite">${o.limite}</span>
+      </div>
+      <button class="btn-sm btn-primary btn-construir-ok" data-tipo="${o.key}" ${puede?'':'disabled'}>Construir</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('opcionesConstruir').querySelectorAll('.btn-construir-ok').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _construir(btn.dataset.tipo);
+      document.getElementById('modalConstruir').classList.add('hidden');
+    });
+  });
+  document.getElementById('modalConstruir').classList.remove('hidden');
+}
+
+function _construir(tipo) {
+  const j = _jugadorActual();
+  const costo = COSTOS[tipo];
+  RES_KEYS.forEach(k => { if (costo[k]) j.recursos[k] -= costo[k]; });
+
+  if (tipo === 'road') { j.roads++; _logJuego(`${j.nombre} construyó 🛤 camino`); }
+  else if (tipo === 'settlement') { j.settlements++; _logJuego(`${j.nombre} construyó 🏠 poblado`); }
+  else if (tipo === 'city') { j.settlements--; j.cities++; _logJuego(`${j.nombre} construyó 🏙 ciudad`); }
+  else if (tipo === 'devcard') {
+    const carta = gj.mazo.pop();
+    j.devMano.push(carta);
+    gj.cartaCompradaEsteTurno = true;
+    _logJuego(`${j.nombre} compró una 🃏 carta de desarrollo (${gj.mazo.length} restantes)`);
+  }
+  _comprobarEjercito();
+  _comprobarVictoria();
+  renderPartida();
+}
+
+document.getElementById('btnCerrarConstruir').addEventListener('click', () => document.getElementById('modalConstruir').classList.add('hidden'));
+
+// --- COMERCIAR ---
+function abrirComerciar() {
+  _renderComercioPanel();
+  document.getElementById('modalComerciar').classList.remove('hidden');
+}
+
+function _renderComercioPanel() {
+  const j = _jugadorActual();
+  const tasaPara = (res) => {
+    if (j.puertos.includes(res)) return 2;
+    if (j.puertos.includes('3:1')) return 3;
+    return 4;
+  };
+
+  let html = '<div class="comercio-puertos">';
+  html += '<p class="comercio-nota">Tus puertos:</p>';
+  html += '<div class="puerto-selector">';
+  const puertoOpts = ['3:1','lumber','brick','wool','grain','ore'];
+  puertoOpts.forEach(p => {
+    const activo = j.puertos.includes(p);
+    const label = p === '3:1' ? '3:1 Genérico' : `2:1 ${RES[p]}`;
+    html += `<button class="btn-puerto ${activo?'btn-puerto-active':''}" data-puerto="${p}">${label}</button>`;
+  });
+  html += '</div></div><hr class="log-sep">';
+
+  html += '<p class="comercio-nota">Dar → Recibir:</p>';
+  html += '<div class="comercio-form">';
+  RES_KEYS.forEach(dar => {
+    const tasa = tasaPara(dar);
+    const puede = j.recursos[dar] >= tasa;
+    RES_KEYS.filter(r => r !== dar).forEach(recibir => {
+      html += `<button class="btn-trade-row ${puede?'':'btn-trade-disabled'}" data-dar="${dar}" data-recibir="${recibir}" ${puede?'':'disabled'}>
+        ${tasa}× ${RES[dar]} → 1× ${RES[recibir]}
+      </button>`;
+    });
+  });
+  html += '</div>';
+
+  const panel = document.getElementById('comercioBanco');
+  panel.innerHTML = html;
+
+  panel.querySelectorAll('.btn-puerto').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.puerto;
+      if (j.puertos.includes(p)) j.puertos = j.puertos.filter(x=>x!==p);
+      else j.puertos.push(p);
+      _renderComercioPanel();
+    });
+  });
+
+  panel.querySelectorAll('.btn-trade-row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dar = btn.dataset.dar, recibir = btn.dataset.recibir;
+      const tasa = tasaPara(dar);
+      j.recursos[dar] -= tasa;
+      j.recursos[recibir]++;
+      _logJuego(`${j.nombre} comerció ${tasa}× ${RES[dar]} → 1× ${RES[recibir]}`);
+      document.getElementById('modalComerciar').classList.add('hidden');
+      renderPartida();
+    });
+  });
+}
+
+document.getElementById('modalComerciar').querySelectorAll('.comercio-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.comercio-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('comercioBanco').classList.toggle('hidden', tab.dataset.tab !== 'banco');
+    document.getElementById('comercioJugador').classList.toggle('hidden', tab.dataset.tab !== 'jugador');
+  });
+});
+document.getElementById('btnCerrarComerciar').addEventListener('click', () => document.getElementById('modalComerciar').classList.add('hidden'));
+
+// --- COMPRAR CARTA ---
+function comprarCarta() {
+  _construir('devcard');
+}
+
+// --- JUGAR CARTA ---
+function abrirJugarCarta() {
+  const j = _jugadorActual();
+  const jugables = j.devMano.filter(c => c !== 'vpCard');
+  if (jugables.length === 0) return;
+
+  document.getElementById('listaCartasJugador').innerHTML = jugables.map((c,i) => `
+    <button class="btn-carta-jugar" data-idx="${i}" data-tipo="${c}">
+      <span class="carta-nombre">${DEV_NAMES[c]}</span>
+      <span class="carta-desc">${DEV_DESC[c]}</span>
+    </button>`).join('');
+
+  document.getElementById('listaCartasJugador').querySelectorAll('.btn-carta-jugar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _jugarCarta(btn.dataset.tipo);
+      document.getElementById('modalJugarCarta').classList.add('hidden');
+    });
+  });
+  document.getElementById('modalJugarCarta').classList.remove('hidden');
+}
+
+function _jugarCarta(tipo) {
+  const j = _jugadorActual();
+  const idx = j.devMano.indexOf(tipo);
+  if (idx === -1) return;
+  j.devMano.splice(idx, 1);
+  j.devJugadas.push(tipo);
+  gj.cartaJugadaEsteTurno = true;
+
+  if (tipo === 'knight') {
+    j.knights++;
+    _comprobarEjercito();
+    _logJuego(`${j.nombre} jugó ⚔ Caballero (total: ${j.knights}). Mueve el ladrón y roba un recurso.`);
+  } else if (tipo === 'roadBuilding') {
+    _logJuego(`${j.nombre} jugó 🛤 Construcción de caminos. Coloca 2 caminos gratis.`);
+    j.roads += 2;
+  } else if (tipo === 'yearOfPlenty') {
+    _logJuego(`${j.nombre} jugó 🌟 Año de abundancia. Toma 2 recursos del banco.`);
+    _mostrarCartaDevModal('yearOfPlenty', j);
+  } else if (tipo === 'monopoly') {
+    _logJuego(`${j.nombre} jugó 💰 Monopolio. Elige un recurso para robar a todos.`);
+    _mostrarCartaDevModal('monopoly', j);
+  }
+  _comprobarVictoria();
+  renderPartida();
+}
+
+function _mostrarCartaDevModal(tipo, j) {
+  let html = '';
+  if (tipo === 'yearOfPlenty') {
+    html = '<p>Selecciona 2 recursos del banco:</p><div class="dev-res-selector">';
+    html += RES_KEYS.map(r => `
+      <div class="dev-res-row">
+        <span>${RES[r]}</span>
+        <button class="btn-sm btn-outline" data-dev-res="${r}" data-dev-n="1">+1</button>
+        <button class="btn-sm btn-outline" data-dev-res="${r}" data-dev-n="2">+2</button>
+      </div>`).join('');
+    html += '</div><p class="comercio-nota">Pulsa los botones para añadir los recursos al jugador.</p>';
+    document.getElementById('cartaDevTitulo').textContent = '🌟 Año de abundancia';
+    document.getElementById('cartaDevContenido').innerHTML = html;
+    document.getElementById('cartaDevContenido').querySelectorAll('[data-dev-res]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        j.recursos[btn.dataset.devRes] += parseInt(btn.dataset.devN);
+        _logJuego(`${j.nombre} recibió ${btn.dataset.devN}× ${RES[btn.dataset.devRes]} (Año de abundancia)`);
+        document.getElementById('modalCartaDev').classList.add('hidden');
+        renderPartida();
+      });
+    });
+  } else if (tipo === 'monopoly') {
+    html = '<p>Elige el recurso del que reclamar el monopolio:</p><div class="opciones-list">';
+    html += RES_KEYS.map(r => `<button class="btn-sm btn-primary btn-monopolio" data-res="${r}">${RES[r]}</button>`).join('');
+    html += '</div>';
+    document.getElementById('cartaDevTitulo').textContent = '💰 Monopolio';
+    document.getElementById('cartaDevContenido').innerHTML = html;
+    document.getElementById('cartaDevContenido').querySelectorAll('.btn-monopolio').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const res = btn.dataset.res;
+        let total = 0;
+        gj.jugadores.forEach(p => {
+          if (p.id !== j.id) { total += p.recursos[res]; p.recursos[res] = 0; }
+        });
+        j.recursos[res] += total;
+        _logJuego(`${j.nombre} Monopolio sobre ${RES[res]}: recibió ${total} cartas`);
+        document.getElementById('modalCartaDev').classList.add('hidden');
+        renderPartida();
+      });
+    });
+  }
+  document.getElementById('modalCartaDev').classList.remove('hidden');
+}
+
+document.getElementById('btnCerrarCartaDev').addEventListener('click', () => document.getElementById('modalCartaDev').classList.add('hidden'));
+document.getElementById('btnCerrarJugarCarta').addEventListener('click', () => document.getElementById('modalJugarCarta').classList.add('hidden'));
+
+// --- EJÉRCITO MÁS GRANDE ---
+function _comprobarEjercito() {
+  if (!gj) return;
+  gj.jugadores.forEach(j => {
+    const umbral = Math.max(2, gj.ejercitoIdx !== null ? gj.jugadores[gj.ejercitoIdx].knights : 2);
+    if (j.knights > umbral || (gj.ejercitoIdx === null && j.knights >= 3)) {
+      if (gj.ejercitoIdx !== j.id) {
+        _logJuego(`⚔ ¡${j.nombre} tiene el Ejército Más Grande! (${j.knights} caballeros)`);
+        gj.ejercitoIdx = j.id;
+        gj.ejercitoSize = j.knights;
+      }
+    }
+  });
+}
+
+// --- CAMINO MÁS LARGO ---
+function abrirAsignarCamino() {
+  const opts = document.getElementById('caminoOpciones');
+  opts.innerHTML = gj.jugadores.map(j => `
+    <button class="btn-sm btn-outline opcion-jugador" data-pid="${j.id}" style="border-color:${j.color}">
+      <span style="color:${j.color}">${escapeHtml(j.nombre)}</span> (${j.roads} caminos)
+    </button>`).join('');
+  opts.querySelectorAll('.opcion-jugador').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = parseInt(btn.dataset.pid);
+      gj.caminoLargoIdx = pid;
+      _logJuego(`🛤 Camino más largo asignado a ${gj.jugadores[pid].nombre}`);
+      document.getElementById('modalCamino').classList.add('hidden');
+      _comprobarVictoria();
+      renderPartida();
+    });
+  });
+  document.getElementById('modalCamino').classList.remove('hidden');
+}
+
+document.getElementById('btnQuitarCamino').addEventListener('click', () => {
+  gj.caminoLargoIdx = null;
+  document.getElementById('modalCamino').classList.add('hidden');
+  renderPartida();
+});
+document.getElementById('btnCerrarCamino').addEventListener('click', () => document.getElementById('modalCamino').classList.add('hidden'));
+
+// --- VICTORIA ---
+function _comprobarVictoria() {
+  if (!gj || gj.fase === 'ended') return;
+  const ganador = gj.jugadores.find(j => _calcularVP(j) >= 10);
+  if (!ganador) return;
+  gj.fase = 'ended';
+  _logJuego(`🏆 ¡${ganador.nombre} gana con ${_calcularVP(ganador)} puntos de victoria!`);
+  document.getElementById('ganadorNombre').textContent = `🏆 ${ganador.nombre} gana!`;
+  document.getElementById('ganadorNombre').style.color = ganador.color;
+  document.getElementById('ganadorVP').textContent = `${_calcularVP(ganador)} puntos de victoria`;
+  document.getElementById('modalGanador').classList.remove('hidden');
+}
+
+document.getElementById('btnGanadorOk').addEventListener('click', () => {
+  document.getElementById('modalGanador').classList.add('hidden');
+  gj = null;
+  document.getElementById('juegoActivo').classList.add('hidden');
+  document.getElementById('setupPartida').classList.remove('hidden');
+});
+
+// --- TURNO ---
+function terminarTurno() {
+  const j = _jugadorActual();
+  _logJuego(`${j.nombre} terminó su turno.`);
+  gj.turnoIdx = (gj.turnoIdx + 1) % gj.jugadores.length;
+  gj.dadoLanzado = false;
+  gj.cartaJugadaEsteTurno = false;
+  gj.cartaCompradaEsteTurno = false;
+  document.getElementById('dado1').textContent = '?';
+  document.getElementById('dado2').textContent = '?';
+  document.getElementById('dadoTotal').textContent = '—';
+  renderPartida();
+}
+
+// --- SETUP UI ---
+function renderSetupJugadores(n) {
+  const container = document.getElementById('playerInputs');
+  container.innerHTML = Array.from({length:n}, (_,i) => `
+    <div class="player-setup-row" style="border-left:3px solid ${COLORES_JUGADOR[i]}">
+      <span class="player-setup-color" style="background:${COLORES_JUGADOR[i]}"></span>
+      <input type="text" class="player-name-input" placeholder="Jugador ${i+1}" value="${COLORES_NOMBRES[i]}" data-idx="${i}" />
+    </div>`).join('');
+}
+
+document.getElementById('numPlayersSelector').querySelectorAll('.num-player-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.num-player-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderSetupJugadores(parseInt(btn.dataset.n));
+  });
+});
+
+document.getElementById('btnIniciarPartida').addEventListener('click', () => {
+  const inputs = document.querySelectorAll('.player-name-input');
+  const jugadores = Array.from(inputs).map((inp,i) => ({
+    nombre: inp.value.trim() || `Jugador ${i+1}`,
+  }));
+  _inicializarJuego(jugadores);
+  document.getElementById('setupPartida').classList.add('hidden');
+  document.getElementById('juegoActivo').classList.remove('hidden');
+});
+
+document.getElementById('btnNuevaPartida').addEventListener('click', () => {
+  mostrarConfirm('¿Nueva partida?', 'Se perderá la partida actual.', () => {
+    gj = null;
+    document.getElementById('juegoActivo').classList.add('hidden');
+    document.getElementById('setupPartida').classList.remove('hidden');
+  }, { ocultarIcono: true, textoOk: 'Sí, nueva partida' });
+});
+
+// Botones principales
+document.getElementById('btnLanzarDados').addEventListener('click', lanzarDados);
+document.getElementById('btnConstruir').addEventListener('click', abrirConstruir);
+document.getElementById('btnComerciar').addEventListener('click', abrirComerciar);
+document.getElementById('btnComprarCarta').addEventListener('click', comprarCarta);
+document.getElementById('btnJugarCarta').addEventListener('click', abrirJugarCarta);
+document.getElementById('btnTerminarTurno').addEventListener('click', terminarTurno);
+document.getElementById('btnReclamarCamino').addEventListener('click', abrirAsignarCamino);
+
+// Init setup por defecto (2 jugadores)
+renderSetupJugadores(2);
