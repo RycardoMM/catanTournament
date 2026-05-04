@@ -5,7 +5,10 @@
 /** Clear localStorage and reload — starts app in clean state */
 async function resetApp(page) {
   await page.evaluate(() => {
-    localStorage.clear();
+    // Clear all app data (tournaments cache + UI state)
+    localStorage.removeItem('catan_torneos');
+    localStorage.removeItem('ui_seccion');
+    localStorage.removeItem('ui_tab_detalle');
     // Prevent Firebase from loading accumulated tournaments from previous test runs
     sessionStorage.setItem('_testMode', '1');
   });

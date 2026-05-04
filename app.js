@@ -142,43 +142,73 @@ function _mostrarToastFb(msg) {
 }
 
 // =============================================
+// ARQUITECTURA DE DATOS
+// ─────────────────────────────────────────────
+// Firebase  → Fuente de verdad (datos importantes, persistentes, compartidos)
+//             catan_tournaments/${id}  — estructura del torneo
+//             catan_results/${id}/${ronda}_${mesa} — resultados por mesa
+//
+// localStorage → Caché rápida + estado de UI (no crítico)
+//             catan_torneos   — caché de la lista de torneos (render inicial instantáneo)
+//             ui_seccion      — última sección visitada (torneos / mapa)
+//             ui_tab_detalle  — última pestaña activa en el detalle
+//
+// Regla: si se borra el localStorage, Firebase lo restaura todo.
+//        Si Firebase y localStorage difieren, Firebase gana.
+// =============================================
 
 const state = {
+  // Lee la caché local para render instantáneo; Firebase la sobreescribirá en breve
   torneos: JSON.parse(localStorage.getItem('catan_torneos') || '[]'),
   torneoActivo: null,
-  seccion: 'torneo',
+  seccion: localStorage.getItem('ui_seccion') || 'torneo',
 };
 
 function guardarEstado() {
-  localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
-  // Sincronizar torneo activo con Firebase en cada guardado
+  // 1. Firebase — fuente de verdad: escribe primero
   if (state.torneoActivo && FIREBASE_ENABLED && _db) {
     try { fbActualizarTorneo(state.torneoActivo); } catch(e) {}
   }
+  // 2. localStorage — actualiza la caché local
+  localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
 }
 
-// Carga todos los torneos desde Firebase al arrancar (si localStorage está vacío o Firebase tiene más datos)
+// Carga torneos desde Firebase (fuente de verdad) al arrancar.
+// Firebase GANA sobre el caché local:
+//   · Si Firebase tiene datos que localStorage no tiene → se añaden.
+//   · Si Firebase tiene una versión más completa de un torneo → se usa la de Firebase.
+//   · Si localStorage tiene torneos que Firebase no tiene (creados offline) → se sincronizan.
 async function cargarTorneosDesdeFirebase() {
   if (!FIREBASE_ENABLED || !_db) return;
-  // In test mode (sessionStorage._testMode set by test helpers), skip Firebase loading
-  // to avoid polluting tests with accumulated Firebase data from previous runs
+  // En modo test: saltamos para no contaminar con datos acumulados de otras ejecuciones
   if (sessionStorage.getItem('_testMode')) return;
   try {
     const snap = await _db.ref('catan_tournaments').once('value');
-    const data = snap.val();
-    if (!data) return;
+    const data = snap.val() || {};
     const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre);
-    if (torneosFb.length === 0) return;
-    // Combinar: los torneos de Firebase ganan sobre localStorage
-    const idsLocales = new Set(state.torneos.map(t => String(t.id)));
-    let cambios = false;
-    torneosFb.forEach(t => {
-      if (!idsLocales.has(String(t.id))) {
-        state.torneos.push(t);
-        cambios = true;
-      }
+    const idsFb = new Set(torneosFb.map(t => String(t.id)));
+
+    // Torneos locales que Firebase no conoce → probablemente creados offline
+    const soloLocales = state.torneos.filter(t => !idsFb.has(String(t.id)));
+
+    // Subir a Firebase los torneos que solo existen en local (sin await, no bloqueamos UI)
+    soloLocales.forEach(t => {
+      try { fbActualizarTorneo(t); } catch(e) {}
     });
-    if (cambios) {
+
+    if (torneosFb.length === 0 && soloLocales.length === state.torneos.length) {
+      // Firebase vacío y todo es local → nada que actualizar en la UI
+      return;
+    }
+
+    // Firebase gana: usamos sus datos + conservamos los locales no sincronizados
+    const nuevaLista = [...torneosFb, ...soloLocales];
+    const listaAnteriorStr = JSON.stringify(state.torneos);
+    const listaNuevaStr   = JSON.stringify(nuevaLista);
+
+    if (listaAnteriorStr !== listaNuevaStr) {
+      state.torneos = nuevaLista;
+      // Actualizar caché local con la versión de Firebase
       localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
       renderTorneos();
     }
@@ -207,6 +237,8 @@ document.querySelectorAll('.sidebar-item').forEach(btn => {
 
 function mostrarSeccion(seccion) {
   state.seccion = seccion;
+  // Persistir en localStorage (estado de UI, no crítico)
+  localStorage.setItem('ui_seccion', seccion);
   document.querySelectorAll('.sidebar-item').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.section === seccion)
   );
@@ -814,7 +846,8 @@ function eliminarTorneo(id) {
 }
 
 // --- Tabs del detalle ---
-let detalleTabActiva = 'jugadores';
+// Restaurar la última pestaña activa desde localStorage (estado de UI)
+let detalleTabActiva = localStorage.getItem('ui_tab_detalle') || 'jugadores';
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => cambiarTab(btn.dataset.tab));
@@ -822,6 +855,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 function cambiarTab(tab) {
   detalleTabActiva = tab;
+  // Persistir en localStorage (estado de UI, no crítico)
+  localStorage.setItem('ui_tab_detalle', tab);
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.tab === tab)
   );
