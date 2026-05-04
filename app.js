@@ -157,6 +157,10 @@ function _mostrarToastFb(msg) {
 //        Si Firebase y localStorage difieren, Firebase gana.
 // =============================================
 
+function _lsSet(key, value) {
+  try { localStorage.setItem(key, value); } catch(e) { console.warn('[localStorage] cuota excedida, omitiendo caché:', key); }
+}
+
 const state = {
   // Lee la caché local para render instantáneo; Firebase la sobreescribirá en breve
   torneos: JSON.parse(localStorage.getItem('catan_torneos') || '[]'),
@@ -170,7 +174,7 @@ function guardarEstado() {
     try { fbActualizarTorneo(state.torneoActivo); } catch(e) {}
   }
   // 2. localStorage — actualiza la caché local
-  localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
+  _lsSet('catan_torneos', JSON.stringify(state.torneos));
 }
 
 // Carga torneos desde Firebase (fuente de verdad) al arrancar.
@@ -203,13 +207,15 @@ async function cargarTorneosDesdeFirebase() {
 
     // Firebase gana: usamos sus datos + conservamos los locales no sincronizados
     const nuevaLista = [...torneosFb, ...soloLocales];
-    const listaAnteriorStr = JSON.stringify(state.torneos);
-    const listaNuevaStr   = JSON.stringify(nuevaLista);
+    // Comparar ordenado por id para evitar re-renders cuando el orden cambia pero los datos son iguales
+    const sortById = arr => [...arr].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const listaAnteriorStr = JSON.stringify(sortById(state.torneos));
+    const listaNuevaStr   = JSON.stringify(sortById(nuevaLista));
 
     if (listaAnteriorStr !== listaNuevaStr) {
       state.torneos = nuevaLista;
       // Actualizar caché local con la versión de Firebase
-      localStorage.setItem('catan_torneos', JSON.stringify(state.torneos));
+      _lsSet('catan_torneos', JSON.stringify(state.torneos));
       renderTorneos();
     }
   } catch(e) {
@@ -238,7 +244,7 @@ document.querySelectorAll('.sidebar-item').forEach(btn => {
 function mostrarSeccion(seccion) {
   state.seccion = seccion;
   // Persistir en localStorage (estado de UI, no crítico)
-  localStorage.setItem('ui_seccion', seccion);
+  _lsSet('ui_seccion', seccion);
   document.querySelectorAll('.sidebar-item').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.section === seccion)
   );
@@ -856,7 +862,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 function cambiarTab(tab) {
   detalleTabActiva = tab;
   // Persistir en localStorage (estado de UI, no crítico)
-  localStorage.setItem('ui_tab_detalle', tab);
+  _lsSet('ui_tab_detalle', tab);
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.tab === tab)
   );
