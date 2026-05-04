@@ -812,7 +812,7 @@ function renderTorneos() {
       <p class="meta">📅 ${t.fechaCreacion}</p>
       <p class="meta">🏆 Desempate: ${(t.metosDesempate || t.desempate || []).map(formatDesempate).join(' › ')}</p>
       <div class="card-footer">
-        <span class="badge">${t.estado}</span>
+        <span class="badge ${torneoFinalizado(t) ? 'finalizado' : ''}">${torneoFinalizado(t) ? 'Finalizado' : t.estado}</span>
         ${!_modoSeleccion ? `<button class="btn-sm btn-outline btn-gestionar" data-id="${t.id}">Gestionar →</button>` : ''}
       </div>
     </div>`;
@@ -1287,7 +1287,9 @@ function renderDetalle() {
   document.getElementById('detalleName').textContent = t.nombre;
   document.getElementById('detalleMeta').textContent =
     `${t.numJugadores} jugadores · ${t.jugadoresPorPartida} por partida · ${t.numRondas || '?'} rondas · ${formatFormato(t.formato)} · ${t.fechaCreacion}`;
-  document.getElementById('detalleBadge').textContent = t.estado;
+  const badgeEl = document.getElementById('detalleBadge');
+  badgeEl.textContent = torneoFinalizado(t) ? 'Finalizado' : t.estado;
+  badgeEl.classList.toggle('finalizado', torneoFinalizado(t));
   actualizarBtnRonda();
   renderJugadores();
   renderRondas();
@@ -1471,6 +1473,10 @@ function actualizarBtnRonda() {
   if (torneoFinalizado(t)) {
     btn.classList.add('hidden');
     if (btnVer) btnVer.classList.remove('hidden');
+    if (t.estado !== 'finalizado') {
+      t.estado = 'finalizado';
+      guardarEstado();
+    }
     return;
   }
   btn.classList.remove('hidden');

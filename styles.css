@@ -355,6 +355,10 @@ main {
   border-radius: 20px;
   text-transform: capitalize;
 }
+.badge.finalizado {
+  background: #555;
+  color: #ccc;
+}
 
 /* MODAL */
 .modal-overlay {
