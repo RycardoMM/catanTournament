@@ -583,8 +583,83 @@ function generarMapa() {
   renderHexBoard(tiles, intentos);
 }
 
+// Ship SVG centered at (cx,cy), sc = scale (1 = full size ~55px tall)
+function drawShip(cx, cy, sc) {
+  sc = sc || 1;
+  const x = cx, y = cy;
+  const hull  = `<path d="M ${p(x-28*sc)},${p(y+4*sc)} Q ${p(x)},${p(y+20*sc)} ${p(x+28*sc)},${p(y+4*sc)} L ${p(x+22*sc)},${p(y-6*sc)} L ${p(x-22*sc)},${p(y-6*sc)} Z" fill="#7A4A10" stroke="#3E2005" stroke-width="${p(1.5*sc)}"/>`;
+  const deck  = `<line x1="${p(x-22*sc)}" y1="${p(y-6*sc)}" x2="${p(x+22*sc)}" y2="${p(y-6*sc)}" stroke="#5A3008" stroke-width="${p(2*sc)}"/>`;
+  const mast  = `<line x1="${p(x)}" y1="${p(y-6*sc)}" x2="${p(x)}" y2="${p(y-52*sc)}" stroke="#4A2A05" stroke-width="${p(2.5*sc)}"/>`;
+  const sail1 = `<polygon points="${p(x)},${p(y-50*sc)} ${p(x+26*sc)},${p(y-22*sc)} ${p(x)},${p(y-10*sc)}" fill="white" stroke="#bbb" stroke-width="${p(sc)}" opacity="0.93"/>`;
+  const sail2 = `<polygon points="${p(x)},${p(y-46*sc)} ${p(x-18*sc)},${p(y-22*sc)} ${p(x)},${p(y-10*sc)}" fill="#f0e8d0" stroke="#bbb" stroke-width="${p(sc)}" opacity="0.87"/>`;
+  const flag  = `<polygon points="${p(x)},${p(y-52*sc)} ${p(x+10*sc)},${p(y-46*sc)} ${p(x)},${p(y-41*sc)}" fill="#C62828"/>`;
+  return hull + deck + mast + sail1 + sail2 + flag;
+}
+
+// Sea ring: 18 hexes at distance 3 from center
+// Even indices (0,2,4,…16) = ports (9 total), odd = plain sea
+const SEA_RING_COORDS = [
+  [-3,0],[-3,1],[-3,2],[-3,3],
+  [-2,3],[-1,3],[0,3],[1,2],[2,1],
+  [3,0],[3,-1],[3,-2],[3,-3],
+  [2,-3],[1,-3],[0,-3],[-1,-2],[-2,-1]
+];
+
+// SEA_RING_COORDS recorre el anillo en sentido ANTIHORARIO.
+// Para orden visual HORARIO desde trigo (idx 2): invertir secuencia.
+// Horario: trigo,piedra,3:1,oveja,3:1,3:1,ladrillo,madera,3:1
+// → antihorario desde idx2: trigo,3:1,madera,ladrillo,3:1,3:1,oveja,3:1,piedra
+const PORT_DATA = [
+  { resource: 'neutral', color: '#C09040' },  // idx0 (izq-alta)
+  { resource: 'ore',     color: '#70757A' },   // idx1 (izq)
+  { resource: 'wheat',   color: '#E8A820' },   // idx2 (abajo-izq) ← ancla
+  { resource: 'neutral', color: '#C09040' },  // idx3
+  { resource: 'wood',    color: '#254815' },   // idx4
+  { resource: 'brick',   color: '#8B3010' },   // idx5
+  { resource: 'neutral', color: '#C09040' },  // idx6
+  { resource: 'neutral', color: '#C09040' },  // idx7
+  { resource: 'sheep',   color: '#4A9820' },   // idx8
+];
+
 function renderHexBoardEn(boardId, infoId, tiles, attempts, prefix) {
-  const defs = tiles.map((tile, i) => {
+  const portDefs = [];
+  const seaSvg = SEA_RING_COORDS.map(([q, r], idx) => {
+    const {x, y} = axialToPixel(q, r);
+    const pts     = hexPoints(x, y);
+    const isPort  = idx % 2 === 0;
+
+    if (!isPort) {
+      const inner = hexPointsSize(x, y, HEX_SIZE - 10);
+      return `
+        <polygon points="${pts}" fill="#1565A8" stroke="#0a3660" stroke-width="3"/>
+        <polygon points="${inner}" fill="none" stroke="#5AAEDE" stroke-width="1.5" opacity="0.55"/>`;
+    }
+
+    const port     = PORT_DATA[idx / 2];
+    const innerPts = hexPointsSize(x, y, HEX_SIZE - 12);
+
+    if (port.resource === 'neutral') {
+      return `
+        <polygon points="${pts}" fill="#1565A8" stroke="#0a3660" stroke-width="3"/>
+        <polygon points="${innerPts}" fill="#C09040" stroke="#8B6010" stroke-width="2"/>
+        <circle cx="${p(x)}" cy="${p(y)}" r="28" fill="#ECD89C" stroke="#8B6010" stroke-width="2"/>
+        <text x="${p(x)}" y="${p(y+10)}" text-anchor="middle" font-size="26" font-weight="900"
+          fill="#1a0f0a" font-family="Teko,sans-serif">3:1</text>`;
+    }
+
+    // Resource 2:1 — image background + ratio badge
+    const clipId = `${prefix}pc${idx}`;
+    portDefs.push(`<clipPath id="${clipId}"><polygon points="${innerPts}"/></clipPath>`);
+    return `
+      <polygon points="${pts}" fill="#1565A8" stroke="#0a3660" stroke-width="3"/>
+      <g clip-path="url(#${clipId})">${drawResourceTile(port.resource, x, y)}</g>
+      <polygon points="${innerPts}" fill="none" stroke="${port.color}" stroke-width="2.5"/>
+      <circle cx="${p(x)}" cy="${p(y)}" r="28" fill="#ECD89C" stroke="${port.color}" stroke-width="2.5"/>
+      <text x="${p(x)}" y="${p(y+10)}" text-anchor="middle" font-size="26" font-weight="900"
+        fill="#1a0f0a" font-family="Teko,sans-serif">2:1</text>`;
+  }).join('');
+
+  const landDefs = tiles.map((tile, i) => {
     const {x, y} = axialToPixel(tile.q, tile.r);
     return `<clipPath id="${prefix}${i}"><polygon points="${hexPoints(x, y)}"/></clipPath>`;
   }).join('');
@@ -613,8 +688,11 @@ function renderHexBoardEn(boardId, infoId, tiles, attempts, prefix) {
   }).join('');
 
   document.getElementById(boardId).innerHTML =
-    `<svg viewBox="0 0 790 730" style="width:100%;display:block">
-      <defs>${defs}</defs>${svgTiles}
+    `<svg viewBox="-155 -135 1100 1000" style="width:100%;display:block">
+      <defs>${portDefs.join('')}${landDefs}</defs>
+      <rect x="-155" y="-135" width="1100" height="1000" fill="#0d3f6e"/>
+      ${seaSvg}
+      ${svgTiles}
     </svg>`;
   if (infoId) document.getElementById(infoId).textContent =
     `Mapa generado en ${attempts} intento${attempts !== 1 ? 's' : ''}.`;
