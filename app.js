@@ -688,7 +688,7 @@ function renderHexBoardEn(boardId, infoId, tiles, attempts, prefix) {
   }).join('');
 
   document.getElementById(boardId).innerHTML =
-    `<svg viewBox="-155 -135 1100 1000" style="width:100%;display:block">
+    `<svg viewBox="-155 -135 1100 1000" style="display:block">
       <defs>${portDefs.join('')}${landDefs}</defs>
       <rect x="-155" y="-135" width="1100" height="1000" fill="#0d3f6e"/>
       ${seaSvg}

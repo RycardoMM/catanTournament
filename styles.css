@@ -957,8 +957,16 @@ main {
   flex-wrap: wrap;
 }
 
+#hexBoardDetalle {
+  display: flex;
+  justify-content: center;
+}
+
 #hexBoardDetalle svg {
-  width: 100%;
+  width: auto;
+  height: auto;
+  max-height: calc(100vh - 220px);
+  max-width: 100%;
   display: block;
 }
 
@@ -1082,11 +1090,15 @@ main {
 
 #hexBoard {
   width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 #hexBoard svg {
-  width: 100%;
+  width: auto;
   height: auto;
+  max-height: calc(100vh - 180px);
+  max-width: 100%;
   display: block;
 }
 
