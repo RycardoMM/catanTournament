@@ -13,5 +13,22 @@
     "@playwright/test": "^1.44.0",
     "chokidar-cli": "^3.0.0",
     "serve": "^14.2.3"
+  },
+  "main": "app.js",
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RycardoMM/catanTournament.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/RycardoMM/catanTournament/issues"
+  },
+  "homepage": "https://github.com/RycardoMM/catanTournament#readme",
+  "dependencies": {
+    "nodemailer": "^10.6.1"
   }
 }

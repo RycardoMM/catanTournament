@@ -3263,15 +3263,25 @@ function comprimirImagen(file, maxPx = 1200, quality = 0.65) {
   });
 }
 
-function fbEnviarFeedback(mensaje, imagenBase64) {
-  if (!_db) return Promise.reject(new Error('Firebase no disponible'));
+async function fbEnviarFeedback(mensaje, imagenBase64) {
   const entry = {
     mensaje,
     fecha: new Date().toISOString(),
     ua: navigator.userAgent.substring(0, 100)
   };
   if (imagenBase64) entry.imagen = imagenBase64;
-  return _db.ref('feedback').push(entry);
+
+  // Guardar en Firebase
+  if (_db) {
+    try { await _db.ref('feedback').push(entry); } catch(e) { console.warn('Firebase feedback:', e); }
+  }
+
+  // Enviar email vía Vercel
+  await fetch('https://catantournament.vercel.app/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry)
+  }).then(r => { if (!r.ok) throw new Error('Vercel ' + r.status); });
 }
 
 (function initFeedback() {
