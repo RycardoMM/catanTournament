@@ -1115,7 +1115,7 @@ function calcularStats(t, rondas) {
   const esAmistoso = t.tipo === 'amistoso';
   const stats = {};
   t.jugadores.forEach(j => {
-    stats[j.id] = { nombre: j.nombre, pv: 0, primerPuesto: 0, torneoPoints: 0, desempateVictorias: 0 };
+    stats[j.id] = { nombre: j.nombre, pv: 0, primerPuesto: 0, torneoPoints: 0, desempateVictorias: 0, _desempateCriteriosSet: new Set() };
   });
   rondas.forEach(ronda => {
     (ronda.resultadosMesas || []).forEach(resultados => {
@@ -1129,15 +1129,29 @@ function calcularStats(t, rondas) {
         } else {
           stats[r.id].torneoPoints += r.pv || 0; // amistoso: ranking basado en PV total
         }
-        if (r.desempateGanado) stats[r.id].desempateVictorias++;
+        if (r.desempateGanado) {
+          stats[r.id].desempateVictorias++;
+          if (r.desempateAplicado) stats[r.id]._desempateCriteriosSet.add(r.desempateAplicado);
+        }
       });
     });
+  });
+  // Convertir Sets a arrays ordenados según t.desempate
+  const desempateOrder = (t.desempate || []).filter(c => c !== 'puntos_victoria');
+  Object.values(stats).forEach(s => {
+    s.desempateCriterios = desempateOrder.filter(c => s._desempateCriteriosSet.has(c));
+    delete s._desempateCriteriosSet;
   });
   return stats;
 }
 
 let _clasificPagina = 0;
 let _clasificUltimoIdx = undefined;
+const _DESEMPATE_CORTOS = {
+  carretera_larga: 'Carretera',
+  menos_recursos: 'Menos rec.',
+  cartas_desarrollo: 'Cartas dev.'
+};
 
 function renderClasificacion(hastaRondaIdx, pagina) {
   const t = state.torneoActivo;
@@ -1240,7 +1254,7 @@ function renderClasificacion(hastaRondaIdx, pagina) {
           <th>Jugador</th>
           <th title="Suma de puntos de victoria de todas las partidas">Puntos Victoria</th>
           <th title="Veces que ha quedado 1º en una partida">1er Puesto</th>
-          <th title="Veces que ha ganado una posición por desempate (criterio secundario de clasificación)">Desempates ⚖️</th>
+          <th title="Criterios de desempate aplicados al ganar una posición en empate">Desempates ⚖️</th>
           ${!esAmistoso ? `<th title="1º→6pts · 2º→4pts · 3º→2pts · 4º→1pt">Puntos Torneo</th>` : ''}
         </tr>
       </thead>
@@ -1253,7 +1267,9 @@ function renderClasificacion(hastaRondaIdx, pagina) {
             <td>${escapeHtml(j.nombre)}</td>
             <td>${Number(j.pv) || 0}</td>
             <td>${Number(j.primerPuesto) > 0 ? `<span class="primer-puesto-badge">${Number(j.primerPuesto)}</span>` : '—'}</td>
-            <td>${Number(j.desempateVictorias) > 0 ? `<span class="desempate-victoria-badge">${Number(j.desempateVictorias)}</span>` : '—'}</td>
+            <td>${j.desempateCriterios && j.desempateCriterios.length
+              ? j.desempateCriterios.map(c => `<span class="desempate-criterio-tag">${escapeHtml(_DESEMPATE_CORTOS[c] || c)}</span>`).join('')
+              : (Number(j.desempateVictorias) > 0 ? `<span class="desempate-victoria-badge">${Number(j.desempateVictorias)}</span>` : '—')}</td>
             ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${Number(j.torneoPoints) || 0}</strong></td>` : ''}
           </tr>`;
         }).join('')}

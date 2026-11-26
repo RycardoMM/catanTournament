@@ -949,6 +949,19 @@ main {
   font-weight: 700;
 }
 
+.desempate-criterio-tag {
+  display: inline-block;
+  background: rgba(212,160,23,0.12);
+  color: var(--catan-gold);
+  border: 1px solid rgba(212,160,23,0.3);
+  border-radius: 10px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0.1rem 0.15rem 0.1rem 0;
+  white-space: nowrap;
+}
+
 /* Panel mapa en detalle torneo */
 .mapa-opciones-inline {
   display: flex;
