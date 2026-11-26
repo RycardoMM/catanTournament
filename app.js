@@ -2622,7 +2622,30 @@ function renderPlayerView(shareData) {
   const esAmistoso = shareData.tipo === 'amistoso';
   const rondaActual = shareData.rondas.length;
   const totalRondas = shareData.numRondas || '?';
-  const clasificacionPublicada = !!(shareData.clasificacionPublicada && shareData.clasificacionFinal);
+
+  // Si clasificacionFinal falta pero clasificacionPublicada=true, recalcular desde rondas
+  if (shareData.clasificacionPublicada && (!shareData.clasificacionFinal || !shareData.clasificacionFinal.length)) {
+    const _s = {};
+    (shareData.jugadores || []).forEach(j => { _s[j.id] = { nombre: j.nombre, pv: 0, torneoPoints: 0, primerPuesto: 0 }; });
+    (shareData.rondas || []).forEach(r => {
+      (r.resultadosMesas || []).forEach(res => {
+        if (!res) return;
+        res.forEach(x => {
+          if (!_s[x.id]) return;
+          _s[x.id].pv += x.pv || 0;
+          _s[x.id].torneoPoints += (TORNEO_PUNTOS[(x.posicion || 1) - 1] || 0);
+          if (x.posicion === 1) _s[x.id].primerPuesto++;
+        });
+      });
+    });
+    shareData.clasificacionFinal = Object.values(_s)
+      .sort((a, b) => esAmistoso
+        ? (b.pv - a.pv || b.primerPuesto - a.primerPuesto)
+        : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto))
+      .map((j, i) => ({ pos: i + 1, nombre: j.nombre, pv: j.pv, torneoPoints: j.torneoPoints, primerPuesto: j.primerPuesto }));
+  }
+
+  const clasificacionPublicada = !!(shareData.clasificacionPublicada && shareData.clasificacionFinal && shareData.clasificacionFinal.length);
 
   // --- Clasificación final (solo si el admin la ha publicado) ---
   const clasificacionFinalHtml = clasificacionPublicada ? `
