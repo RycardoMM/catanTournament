@@ -962,6 +962,12 @@ main {
   white-space: nowrap;
 }
 
+.desempate-pv-tag {
+  background: rgba(100,160,255,0.12);
+  color: #7ab4f5;
+  border-color: rgba(100,160,255,0.3);
+}
+
 /* Panel mapa en detalle torneo */
 .mapa-opciones-inline {
   display: flex;

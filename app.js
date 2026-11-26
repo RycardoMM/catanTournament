@@ -1115,7 +1115,7 @@ function calcularStats(t, rondas) {
   const esAmistoso = t.tipo === 'amistoso';
   const stats = {};
   t.jugadores.forEach(j => {
-    stats[j.id] = { nombre: j.nombre, pv: 0, primerPuesto: 0, torneoPoints: 0, desempateVictorias: 0, _desempateCriteriosSet: new Set() };
+    stats[j.id] = { nombre: j.nombre, pv: 0, primerPuesto: 0, torneoPoints: 0, desempateVictorias: 0, _desempateCriteriosCount: {} };
   });
   rondas.forEach(ronda => {
     (ronda.resultadosMesas || []).forEach(resultados => {
@@ -1134,16 +1134,21 @@ function calcularStats(t, rondas) {
           : (resultados.some(x => x.id !== r.id && x.pv === r.pv && x.posicion > r.posicion));
         if (ganoPorDesempate) {
           stats[r.id].desempateVictorias++;
-          if (r.desempateAplicado) stats[r.id]._desempateCriteriosSet.add(r.desempateAplicado);
+          if (r.desempateAplicado) {
+            const cnt = stats[r.id]._desempateCriteriosCount;
+            cnt[r.desempateAplicado] = (cnt[r.desempateAplicado] || 0) + 1;
+          }
         }
       });
     });
   });
-  // Convertir Sets a arrays ordenados según t.desempate
+  // Convertir contadores a arrays ordenados según t.desempate, con counts
   const desempateOrder = (t.desempate || []).filter(c => c !== 'puntos_victoria');
   Object.values(stats).forEach(s => {
-    s.desempateCriterios = desempateOrder.filter(c => s._desempateCriteriosSet.has(c));
-    delete s._desempateCriteriosSet;
+    s.desempateCriterios = desempateOrder
+      .filter(c => s._desempateCriteriosCount[c])
+      .map(c => ({ criterio: c, count: s._desempateCriteriosCount[c] }));
+    delete s._desempateCriteriosCount;
   });
   return stats;
 }
@@ -1210,6 +1215,14 @@ function renderClasificacion(hastaRondaIdx, pagina) {
       : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto || b.desempateVictorias - a.desempateVictorias)
   );
 
+  // Marcar quién ganó clasificación por PV (mismos torneoPoints, más PV total)
+  if (!esAmistoso) {
+    ordenados.forEach(j => {
+      const rivals = ordenados.filter(x => x !== j && x.torneoPoints === j.torneoPoints);
+      j._pvClaseWin = rivals.length > 0 && rivals.some(x => x.pv < j.pv);
+    });
+  }
+
   const totalPags = Math.ceil(ordenados.length / 10);
   const slice = ordenados.slice(pag * 10, pag * 10 + 10);
   const offsetIdx = pag * 10;
@@ -1270,9 +1283,15 @@ function renderClasificacion(hastaRondaIdx, pagina) {
             <td>${escapeHtml(j.nombre)}</td>
             <td>${Number(j.pv) || 0}</td>
             <td>${Number(j.primerPuesto) > 0 ? `<span class="primer-puesto-badge">${Number(j.primerPuesto)}</span>` : '—'}</td>
-            <td>${j.desempateCriterios && j.desempateCriterios.length
-              ? j.desempateCriterios.map(c => `<span class="desempate-criterio-tag">${escapeHtml(_DESEMPATE_CORTOS[c] || c)}</span>`).join('')
-              : (Number(j.desempateVictorias) > 0 ? `<span class="desempate-victoria-badge">${Number(j.desempateVictorias)}</span>` : '—')}</td>
+            <td>${(() => {
+              const tags = [];
+              if (j._pvClaseWin) tags.push('<span class="desempate-criterio-tag desempate-pv-tag">Más PV</span>');
+              (j.desempateCriterios || []).forEach(({criterio, count}) => {
+                const label = escapeHtml(_DESEMPATE_CORTOS[criterio] || criterio);
+                tags.push(`<span class="desempate-criterio-tag">${label}${count > 1 ? ` ×${count}` : ''}</span>`);
+              });
+              return tags.length ? tags.join('') : (Number(j.desempateVictorias) > 0 ? `<span class="desempate-victoria-badge">${Number(j.desempateVictorias)}</span>` : '—');
+            })()}</td>
             ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${Number(j.torneoPoints) || 0}</strong></td>` : ''}
           </tr>`;
         }).join('')}
