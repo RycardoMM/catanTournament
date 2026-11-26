@@ -102,7 +102,7 @@ let _guestTorneoRef = null;
 let _guestResultsRef = null;
 
 function _aplicarResultadosFirebase(torneoId, data) {
-  const t = state.torneos.find(x => x.id === torneoId);
+  const t = state.torneos.find(x => String(x.id) === String(torneoId));
   if (!t || t !== state.torneoActivo) return;
   let changed = false;
   Object.entries(data).forEach(([key, resultados]) => {
@@ -3057,14 +3057,8 @@ function renderPlayerView(shareData) {
         pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
       }));
       const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
-      const hayEmpate = sorted.some((j, i) => i > 0 && j.pv === sorted[i - 1].pv);
-
-      if (hayEmpate) {
-        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
-      } else {
-        btn.textContent = '⏳ Enviando…'; btn.disabled = true;
-        pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
-      }
+      btn.textContent = '⏳ Enviando…'; btn.disabled = true;
+      pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
     });
   });
 
