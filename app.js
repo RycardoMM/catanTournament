@@ -186,6 +186,9 @@ async function cargarTorneosDesdeFirebase() {
   if (!FIREBASE_ENABLED || !_db) return;
   // En modo test: saltamos para no contaminar con datos acumulados de otras ejecuciones
   if (sessionStorage.getItem('_testMode')) return;
+  // Usuario sin torneos locales: no importar desde Firebase para evitar que nuevos
+  // usuarios vean los torneos de otros al abrir la web por primera vez
+  if (state.torneos.length === 0) return;
   try {
     const snap = await _db.ref('catan_tournaments').once('value');
     const data = snap.val() || {};
@@ -811,7 +814,7 @@ document.getElementById('formTorneo').addEventListener('submit', (e) => {
   const tipo = document.getElementById('tipoTorneo').value;
 
   if (!nombre) return resaltarError('nombreTorneo');
-  if (!numJugadores || numJugadores < 4) return resaltarError('numJugadores');
+  if (!numJugadores || numJugadores < jugadoresPorPartida) return resaltarError('numJugadores');
   if (!numRondas || numRondas < 1) return resaltarError('numRondas');
 
   const metosDesempate = [...desempateList.querySelectorAll('.desempate-item')].map(i => i.dataset.value);
