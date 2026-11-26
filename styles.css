@@ -2387,3 +2387,44 @@ main {
   .sorteo-premios-row { flex-wrap: wrap; }
   #btnIniciarSorteo { width: 100%; justify-content: center; }
 }
+
+/* ── Feedback flotante ── */
+.btn-feedback-float {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 999;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--catan-gold);
+  color: #1a1008;
+  font-size: 1.3rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-feedback-float:hover { transform: scale(1.1); box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
+
+.feedback-modal { max-width: 420px; }
+.feedback-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  padding: 0.75rem;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.feedback-textarea:focus { outline: none; border-color: var(--catan-gold); }
+.feedback-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+.feedback-ok { color: #4caf50; font-size: 0.9rem; }
+.feedback-error { color: var(--catan-red); font-size: 0.85rem; margin-top: 0.5rem; }

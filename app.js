@@ -3190,6 +3190,51 @@ function checkShareMode() {
   }
 }
 
+// ── Feedback ──────────────────────────────────────────────────────────────
+function fbEnviarFeedback(mensaje) {
+  if (!_db) return Promise.reject(new Error('Firebase no disponible'));
+  return _db.ref('feedback').push({
+    mensaje,
+    fecha: new Date().toISOString(),
+    ua: navigator.userAgent.substring(0, 100)
+  });
+}
+
+(function initFeedback() {
+  const btnOpen   = document.getElementById('btnFeedback');
+  const overlay   = document.getElementById('modalFeedback');
+  const btnClose  = document.getElementById('btnCerrarFeedback');
+  const textarea  = document.getElementById('feedbackTexto');
+  const btnEnviar = document.getElementById('btnEnviarFeedback');
+  const okMsg     = document.getElementById('feedbackOk');
+  const errMsg    = document.getElementById('feedbackError');
+
+  function openModal()  { overlay.classList.remove('hidden'); textarea.focus(); }
+  function closeModal() { overlay.classList.add('hidden'); textarea.value = ''; okMsg.classList.add('hidden'); errMsg.classList.add('hidden'); }
+
+  btnOpen.addEventListener('click', openModal);
+  btnClose.addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  btnEnviar.addEventListener('click', async () => {
+    const msg = textarea.value.trim();
+    errMsg.classList.add('hidden');
+    if (!msg) { errMsg.textContent = 'Escribe algo antes de enviar.'; errMsg.classList.remove('hidden'); return; }
+    btnEnviar.disabled = true;
+    try {
+      await fbEnviarFeedback(msg);
+      okMsg.classList.remove('hidden');
+      textarea.value = '';
+      setTimeout(closeModal, 2000);
+    } catch(e) {
+      errMsg.textContent = 'Error al enviar. Inténtalo de nuevo.';
+      errMsg.classList.remove('hidden');
+    } finally {
+      btnEnviar.disabled = false;
+    }
+  });
+})();
+
 // Init
 if (!checkShareMode()) {
   renderTorneos();

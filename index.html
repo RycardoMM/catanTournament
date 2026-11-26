@@ -324,9 +324,27 @@
     </div>
   </div>
 
+<!-- Botón flotante feedback -->
+<button id="btnFeedback" class="btn-feedback-float" title="Enviar feedback">💬</button>
+
+<!-- Modal feedback -->
+<div class="modal-overlay hidden" id="modalFeedback">
+  <div class="modal feedback-modal">
+    <button class="modal-close" id="btnCerrarFeedback">&times;</button>
+    <h2>💬 Feedback</h2>
+    <p class="share-section-desc">¿Algo que mejorar? ¿Un bug? ¡Cuéntame!</p>
+    <textarea id="feedbackTexto" class="feedback-textarea" placeholder="Escribe tu mensaje..." maxlength="1000" rows="5"></textarea>
+    <div id="feedbackError" class="feedback-error hidden"></div>
+    <div class="feedback-actions">
+      <button class="btn-primary" id="btnEnviarFeedback">Enviar</button>
+      <span id="feedbackOk" class="feedback-ok hidden">✓ ¡Enviado! Gracias.</span>
+    </div>
+  </div>
+</div>
+
 <!-- Firebase SDK (real-time sync) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
