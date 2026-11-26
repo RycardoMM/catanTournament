@@ -1500,27 +1500,13 @@ function agregarJugador() {
   renderJugadores();
 }
 
-const NOMBRES_PRUEBA = [
-  'Alejandro García', 'Beatriz López', 'Carlos Martínez', 'Diana Sánchez',
-  'Eduardo Pérez', 'Fátima González', 'Gabriel Rodríguez', 'Helena Fernández',
-  'Ignacio Torres', 'Julia Ramírez', 'Kevin Morales', 'Laura Jiménez',
-  'Marcos Ruiz', 'Natalia Díaz', 'Óscar Hernández', 'Patricia Moreno',
-  'Quique Alonso', 'Rosa Navarro', 'Santiago Romero', 'Teresa Domínguez',
-  'Ulises Vargas', 'Valentina Castro', 'Willy Suárez', 'Xenia Ortega',
-  'Yaiza Ramos', 'Zacarías Reyes', 'Andrés Iglesias', 'Blanca Rubio',
-  'Cristóbal Molina', 'Daniela Cruz', 'Emilio Guerrero', 'Francisca Muñoz',
-];
-
 document.getElementById('btnJugadoresPrueba').addEventListener('click', () => {
   const t = state.torneoActivo;
   const necesarios = t.numJugadores - t.jugadores.length;
   if (necesarios <= 0) return;
-  const usados = new Set(t.jugadores.map(j => j.nombre));
-  const disponibles = NOMBRES_PRUEBA.filter(n => !usados.has(n));
   const aAñadir = [];
-  for (let i = 0; aAñadir.length < necesarios; i++) {
-    const nombre = i < disponibles.length ? disponibles[i] : `Jugador ${t.jugadores.length + aAñadir.length + 1}`;
-    aAñadir.push(nombre);
+  for (let i = 0; i < necesarios; i++) {
+    aAñadir.push(`Jugador ${t.jugadores.length + i + 1}`);
   }
   aAñadir.forEach(nombre => t.jugadores.push({ id: Date.now() + Math.random(), nombre }));
   guardarEstado();
