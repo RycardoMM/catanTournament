@@ -2767,6 +2767,16 @@ function renderPlayerView(shareData) {
                   id="pvg_${sfx}_${j.id}" data-id="${j.id}" />
               </div>`).join('')}
             <div class="pv-empate-aviso hidden"></div>
+            <div class="pv-criterio-bloque hidden">
+              <label class="desempate-criterio-label">¿Cómo se desempató?</label>
+              <select class="desempate-criterio-select">
+                <option value="">— Sin especificar —</option>
+                ${(shareData.desempate || []).filter(c => c !== 'puntos_victoria').map(c => {
+                  const _n = {carretera_larga:'Carretera más larga',menos_recursos:'Menos recursos',cartas_desarrollo:'Más cartas de desarrollo'};
+                  return `<option value="${escapeHtml(c)}">${escapeHtml(_n[c] || c)}</option>`;
+                }).join('')}
+              </select>
+            </div>
             <div class="resultado-form-actions">
               ${FIREBASE_ENABLED
                 ? `<button class="btn-sm btn-primary btn-pv-submit"
@@ -2989,15 +2999,15 @@ function renderPlayerView(shareData) {
     }
   };
 
-  const pvMostrarDesempate = (card, orden, torneoId, rondaNum, mi, mesaLen) => {
+  const pvMostrarDesempate = (card, orden, torneoId, rondaNum, mi, mesaLen, criterioPreseleccionado) => {
     const criterios = shareData.desempate || [];
-    const criterioSelectHtml = criterios.length > 0 ? `
+    const criteriosFiltrados = criterios.filter(c => c !== 'puntos_victoria');
+    const criterioSelectHtml = criteriosFiltrados.length > 0 ? `
       <div class="desempate-criterio-sel">
         <label class="desempate-criterio-label">¿Cómo se desempató?</label>
         <select class="desempate-criterio-select">
           <option value="">— Sin especificar —</option>
-          ${criterios.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(DESEMPATE_NOMBRES[c] || c)}</option>`).join('')}
-          <option value="otro">Otro / acuerdo</option>
+          ${criteriosFiltrados.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(DESEMPATE_NOMBRES[c] || c)}</option>`).join('')}
         </select>
       </div>` : '';
 
@@ -3029,9 +3039,10 @@ function renderPlayerView(shareData) {
           <button class="btn-sm btn-primary btn-confirm-orden">✓ Confirmar</button>
         </div>`;
 
-      if (selectedCriterio) {
+      const criterioInicial = selectedCriterio || criterioPreseleccionado || '';
+      if (criterioInicial) {
         const sel = card.querySelector('.desempate-criterio-select');
-        if (sel) sel.value = selectedCriterio;
+        if (sel) sel.value = criterioInicial;
       }
 
       card.querySelectorAll('.btn-arrow:not(.invisible)').forEach(b => {
@@ -3059,16 +3070,19 @@ function renderPlayerView(shareData) {
 
   const _actualizarAvisoEmpate = (card, ronda, mi) => {
     const aviso = card.querySelector('.pv-empate-aviso');
+    const criterioBloque = card.querySelector('.pv-criterio-bloque');
     if (!aviso) return;
     const pvs = ronda.mesas[mi].map(j =>
       parseInt(document.getElementById(`pvg_${ronda.numero}_${mi}_${j.id}`)?.value) || 0
     );
     const hayEmpate = pvs.some((v, i) => i > 0 && pvs.slice(0, i).includes(v));
     if (hayEmpate) {
-      aviso.textContent = `⚖️ Empate detectado${_criteriosTexto ? ' — criterios: ' + _criteriosTexto : ''}`;
+      aviso.textContent = '⚖️ Empate detectado — indica el orden y el criterio aplicado';
       aviso.classList.remove('hidden');
+      criterioBloque?.classList.remove('hidden');
     } else {
       aviso.classList.add('hidden');
+      criterioBloque?.classList.add('hidden');
     }
   };
 
@@ -3091,7 +3105,8 @@ function renderPlayerView(shareData) {
       const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
       const hayEmpate = sorted.some((j, i) => i > 0 && j.pv === sorted[i - 1].pv);
       if (hayEmpate) {
-        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
+        const criterioForm = card.querySelector('.desempate-criterio-select')?.value || null;
+        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen, criterioForm);
       } else {
         btn.textContent = '⏳ Enviando…'; btn.disabled = true;
         pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
