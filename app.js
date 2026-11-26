@@ -1156,7 +1156,8 @@ function renderClasificacion(hastaRondaIdx, pagina) {
         <span class="torneo-fin-texto">¡Torneo finalizado!</span>
       </div>
       ${yaPublicada
-        ? `<span class="torneo-fin-publicado">✅ Clasificación publicada</span>`
+        ? `<span class="torneo-fin-publicado">✅ Clasificación publicada</span>
+           <button class="btn-sm btn-secondary btn-publicar-clasif" style="margin-left:.5rem">🔄 Re-sincronizar</button>`
         : `<button class="btn-sm btn-primary btn-publicar-clasif">📤 Compartir clasificación final</button>`
       }
     </div>` : '';
@@ -1343,6 +1344,34 @@ function renderHistorial() {
   });
 }
 
+// Repara clasificacionFinal en Firebase si fue publicada pero el campo quedó nulo
+function _fbResincronizarClasificacion(t) {
+  if (!t || !t.clasificacionPublicada || !_db) return;
+  if (t.clasificacionFinal && t.clasificacionFinal.length) {
+    // Local tiene datos — subir a Firebase por si acaso
+    _db.ref(`catan_tournaments/${t.id}`).update({
+      clasificacionPublicada: true,
+      clasificacionFinal: t.clasificacionFinal
+    });
+    return;
+  }
+  // Local no tiene clasificacionFinal — recalcular y subir
+  const esAmistoso = t.tipo === 'amistoso';
+  const stats = calcularStats(t);
+  const clasificacion = Object.values(stats)
+    .sort((a, b) => esAmistoso
+      ? (b.pv - a.pv || b.primerPuesto - a.primerPuesto)
+      : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto))
+    .map((j, i) => ({ pos: i + 1, nombre: j.nombre, pv: j.pv, torneoPoints: j.torneoPoints, primerPuesto: j.primerPuesto }));
+  if (!clasificacion.length) return;
+  t.clasificacionFinal = clasificacion;
+  guardarEstado();
+  _db.ref(`catan_tournaments/${t.id}`).update({
+    clasificacionPublicada: true,
+    clasificacionFinal: clasificacion
+  });
+}
+
 // --- Vista detalle ---
 function abrirDetalle(id) {
   state.torneoActivo = state.torneos.find(t => String(t.id) === String(id));
@@ -1352,6 +1381,7 @@ function abrirDetalle(id) {
   mostrarVista('detalle');
   fbIniciarListener(id); // escuchar resultados en tiempo real
   fbSincronizarResultadosExistentes(state.torneoActivo); // subir resultados previos no sincronizados
+  _fbResincronizarClasificacion(state.torneoActivo); // reparar clasificacionFinal si falta en Firebase
 }
 
 document.getElementById('btnVolver').addEventListener('click', () => {
