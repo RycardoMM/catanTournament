@@ -3306,9 +3306,10 @@ function fbEnviarFeedback(mensaje, imagenBase64) {
     preview.classList.add('hidden');
   }
 
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
+  fileInput.addEventListener('change', () => cargarImagenDesdeFile(fileInput.files[0]));
+
+  async function cargarImagenDesdeFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
     errMsg.classList.add('hidden');
     try {
       imagenBase64 = await comprimirImagen(file);
@@ -3317,6 +3318,19 @@ function fbEnviarFeedback(mensaje, imagenBase64) {
     } catch(e) {
       errMsg.textContent = 'No se pudo cargar la imagen.';
       errMsg.classList.remove('hidden');
+    }
+  }
+
+  // Pegar imagen desde portapapeles (Ctrl+V / recorte de pantalla)
+  overlay.addEventListener('paste', async e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        await cargarImagenDesdeFile(item.getAsFile());
+        break;
+      }
     }
   });
 
