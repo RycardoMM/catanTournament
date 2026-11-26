@@ -333,7 +333,15 @@
     <button class="modal-close" id="btnCerrarFeedback">&times;</button>
     <h2>💬 Feedback</h2>
     <p class="share-section-desc">¿Algo que mejorar? ¿Un bug? ¡Cuéntame!</p>
-    <textarea id="feedbackTexto" class="feedback-textarea" placeholder="Escribe tu mensaje..." maxlength="1000" rows="5"></textarea>
+    <textarea id="feedbackTexto" class="feedback-textarea" placeholder="Escribe tu mensaje..." maxlength="1000" rows="4"></textarea>
+    <label class="feedback-img-label">
+      <input type="file" id="feedbackImagen" accept="image/*" class="feedback-img-input" />
+      <span class="btn-sm btn-outline feedback-img-btn">📎 Adjuntar captura</span>
+    </label>
+    <div id="feedbackPreview" class="feedback-preview hidden">
+      <img id="feedbackPreviewImg" alt="preview" />
+      <button id="btnQuitarImagen" class="feedback-img-remove" title="Quitar imagen">&times;</button>
+    </div>
     <div id="feedbackError" class="feedback-error hidden"></div>
     <div class="feedback-actions">
       <button class="btn-primary" id="btnEnviarFeedback">Enviar</button>

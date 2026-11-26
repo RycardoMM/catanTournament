@@ -3191,40 +3191,101 @@ function checkShareMode() {
 }
 
 // ── Feedback ──────────────────────────────────────────────────────────────
-function fbEnviarFeedback(mensaje) {
-  if (!_db) return Promise.reject(new Error('Firebase no disponible'));
-  return _db.ref('feedback').push({
-    mensaje,
-    fecha: new Date().toISOString(),
-    ua: navigator.userAgent.substring(0, 100)
+function comprimirImagen(file, maxPx = 1200, quality = 0.65) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 
+function fbEnviarFeedback(mensaje, imagenBase64) {
+  if (!_db) return Promise.reject(new Error('Firebase no disponible'));
+  const entry = {
+    mensaje,
+    fecha: new Date().toISOString(),
+    ua: navigator.userAgent.substring(0, 100)
+  };
+  if (imagenBase64) entry.imagen = imagenBase64;
+  return _db.ref('feedback').push(entry);
+}
+
 (function initFeedback() {
-  const btnOpen   = document.getElementById('btnFeedback');
-  const overlay   = document.getElementById('modalFeedback');
-  const btnClose  = document.getElementById('btnCerrarFeedback');
-  const textarea  = document.getElementById('feedbackTexto');
-  const btnEnviar = document.getElementById('btnEnviarFeedback');
-  const okMsg     = document.getElementById('feedbackOk');
-  const errMsg    = document.getElementById('feedbackError');
+  const btnOpen    = document.getElementById('btnFeedback');
+  const overlay    = document.getElementById('modalFeedback');
+  const btnClose   = document.getElementById('btnCerrarFeedback');
+  const textarea   = document.getElementById('feedbackTexto');
+  const fileInput  = document.getElementById('feedbackImagen');
+  const preview    = document.getElementById('feedbackPreview');
+  const previewImg = document.getElementById('feedbackPreviewImg');
+  const btnQuitar  = document.getElementById('btnQuitarImagen');
+  const btnEnviar  = document.getElementById('btnEnviarFeedback');
+  const okMsg      = document.getElementById('feedbackOk');
+  const errMsg     = document.getElementById('feedbackError');
+
+  let imagenBase64 = null;
 
   function openModal()  { overlay.classList.remove('hidden'); textarea.focus(); }
-  function closeModal() { overlay.classList.add('hidden'); textarea.value = ''; okMsg.classList.add('hidden'); errMsg.classList.add('hidden'); }
+  function closeModal() {
+    overlay.classList.add('hidden');
+    textarea.value = '';
+    imagenBase64 = null;
+    fileInput.value = '';
+    preview.classList.add('hidden');
+    okMsg.classList.add('hidden');
+    errMsg.classList.add('hidden');
+  }
+
+  function quitarImagen() {
+    imagenBase64 = null;
+    fileInput.value = '';
+    preview.classList.add('hidden');
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    errMsg.classList.add('hidden');
+    try {
+      imagenBase64 = await comprimirImagen(file);
+      previewImg.src = imagenBase64;
+      preview.classList.remove('hidden');
+    } catch(e) {
+      errMsg.textContent = 'No se pudo cargar la imagen.';
+      errMsg.classList.remove('hidden');
+    }
+  });
 
   btnOpen.addEventListener('click', openModal);
   btnClose.addEventListener('click', closeModal);
+  btnQuitar.addEventListener('click', quitarImagen);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
   btnEnviar.addEventListener('click', async () => {
     const msg = textarea.value.trim();
     errMsg.classList.add('hidden');
-    if (!msg) { errMsg.textContent = 'Escribe algo antes de enviar.'; errMsg.classList.remove('hidden'); return; }
+    if (!msg && !imagenBase64) {
+      errMsg.textContent = 'Escribe algo o adjunta una captura.';
+      errMsg.classList.remove('hidden');
+      return;
+    }
     btnEnviar.disabled = true;
     try {
-      await fbEnviarFeedback(msg);
+      await fbEnviarFeedback(msg, imagenBase64);
       okMsg.classList.remove('hidden');
-      textarea.value = '';
       setTimeout(closeModal, 2000);
     } catch(e) {
       errMsg.textContent = 'Error al enviar. Inténtalo de nuevo.';

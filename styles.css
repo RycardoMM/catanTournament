@@ -2428,3 +2428,37 @@ main {
 .feedback-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
 .feedback-ok { color: #4caf50; font-size: 0.9rem; }
 .feedback-error { color: var(--catan-red); font-size: 0.85rem; margin-top: 0.5rem; }
+
+/* feedback imagen */
+.feedback-img-input { display: none; }
+.feedback-img-label { display: inline-block; margin-top: 0.6rem; cursor: pointer; }
+.feedback-img-btn { cursor: pointer; }
+.feedback-preview {
+  position: relative;
+  margin-top: 0.75rem;
+  display: inline-block;
+}
+.feedback-preview img {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+}
+.feedback-img-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--catan-red);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
