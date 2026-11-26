@@ -2729,6 +2729,9 @@ function renderPlayerView(shareData) {
       const res = (ronda.resultadosMesas || [])[mi];
       const sfx = `${ronda.numero}_${mi}`;
       if (res && res.length) {
+        const _DNAMES = {carretera_larga:'Carretera más larga',menos_recursos:'Menos recursos',cartas_desarrollo:'Más cartas de desarrollo'};
+        const _seenPv = new Set(); const _desNotas = [];
+        res.forEach(r => { if (r.desempateAplicado && !_seenPv.has(r.pv)) { _seenPv.add(r.pv); _desNotas.push(`${r.pv} PV → ${_DNAMES[r.desempateAplicado] || r.desempateAplicado}`); } });
         return `
           <div class="mesa-card">
             <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
@@ -2741,6 +2744,7 @@ function renderPlayerView(shareData) {
                   ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
                 </div>`).join('')}
             </div>
+            ${_desNotas.length ? `<p class="pv-desempate-nota">⚖️ Desempate: ${_desNotas.join(' · ')}</p>` : ''}
           </div>`;
       }
       if (esRondaPasada) {
