@@ -2952,6 +2952,7 @@ function renderPlayerView(shareData) {
   };
 
   const pvRenderResultado = (card, datos, mesaLen, mesaNum) => {
+    const des = datos[0]?.desempateAplicado;
     card.innerHTML = `
       <div class="mesa-header">Mesa ${mesaNum} <span class="mesa-count">(${mesaLen})</span></div>
       <div class="resultado-display">
@@ -2963,6 +2964,7 @@ function renderPlayerView(shareData) {
             ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
           </div>`).join('')}
       </div>
+      ${des ? `<p class="pv-desempate-nota">⚖️ Desempate por: ${DESEMPATE_NOMBRES[des] || des}</p>` : ''}
       <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
     // Desvanecer el mensaje de confirmación tras 3 segundos
     const msg = card.querySelector('.pv-submit-ok');
@@ -2973,8 +2975,9 @@ function renderPlayerView(shareData) {
     }, 3000);
   };
 
-  const pvEnviar = async (card, datos, torneoId, rondaNum, mi, mesaLen) => {
+  const pvEnviar = async (card, datos, torneoId, rondaNum, mi, mesaLen, desempateAplicado) => {
     datos.forEach((j, i) => { j.posicion = i + 1; });
+    if (desempateAplicado) datos.forEach(j => { j.desempateAplicado = desempateAplicado; });
     try {
       await fbEnviarResultado(torneoId, rondaNum, mi, datos);
       pvRenderResultado(card, datos, mesaLen, mi + 1);
@@ -2987,10 +2990,19 @@ function renderPlayerView(shareData) {
   };
 
   const pvMostrarDesempate = (card, orden, torneoId, rondaNum, mi, mesaLen) => {
-    const criteriosTexto = (shareData.desempate || [])
-      .map(c => DESEMPATE_NOMBRES[c] || c).join(' → ');
+    const criterios = shareData.desempate || [];
+    const criterioSelectHtml = criterios.length > 0 ? `
+      <div class="desempate-criterio-sel">
+        <label class="desempate-criterio-label">¿Cómo se desempató?</label>
+        <select class="desempate-criterio-select">
+          <option value="">— Sin especificar —</option>
+          ${criterios.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(DESEMPATE_NOMBRES[c] || c)}</option>`).join('')}
+          <option value="otro">Otro / acuerdo</option>
+        </select>
+      </div>` : '';
 
     const render = () => {
+      const selectedCriterio = card.querySelector('.desempate-criterio-select')?.value || '';
       const listaHtml = orden.map((j, i) => {
         const puedeSubir  = i > 0 && orden[i - 1].pv === j.pv;
         const puedeBajar  = i < orden.length - 1 && orden[i + 1].pv === j.pv;
@@ -3012,10 +3024,15 @@ function renderPlayerView(shareData) {
         <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesaLen})</span></div>
         <div class="pv-desempate">
           <p class="pv-desempate-title">⚖️ Hay empate — establece el orden final</p>
-          ${criteriosTexto ? `<p class="pv-desempate-hint">Criterios: ${criteriosTexto}</p>` : ''}
           <div class="pv-desempate-lista">${listaHtml}</div>
-          <button class="btn-sm btn-primary btn-confirm-orden">✓ Confirmar orden</button>
+          ${criterioSelectHtml}
+          <button class="btn-sm btn-primary btn-confirm-orden">✓ Confirmar</button>
         </div>`;
+
+      if (selectedCriterio) {
+        const sel = card.querySelector('.desempate-criterio-select');
+        if (sel) sel.value = selectedCriterio;
+      }
 
       card.querySelectorAll('.btn-arrow:not(.invisible)').forEach(b => {
         b.addEventListener('click', () => {
@@ -3028,8 +3045,9 @@ function renderPlayerView(shareData) {
 
       card.querySelector('.btn-confirm-orden').addEventListener('click', async () => {
         const c = card.querySelector('.btn-confirm-orden');
+        const desempateAplicado = card.querySelector('.desempate-criterio-select')?.value || null;
         c.textContent = '⏳ Enviando…'; c.disabled = true;
-        await pvEnviar(card, orden, torneoId, rondaNum, mi, mesaLen, mi + 1);
+        await pvEnviar(card, orden, torneoId, rondaNum, mi, mesaLen, desempateAplicado);
       });
     };
     render();
@@ -3071,8 +3089,13 @@ function renderPlayerView(shareData) {
         pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
       }));
       const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
-      btn.textContent = '⏳ Enviando…'; btn.disabled = true;
-      pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
+      const hayEmpate = sorted.some((j, i) => i > 0 && j.pv === sorted[i - 1].pv);
+      if (hayEmpate) {
+        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
+      } else {
+        btn.textContent = '⏳ Enviando…'; btn.disabled = true;
+        pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
+      }
     });
   });
 

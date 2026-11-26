@@ -1629,6 +1629,10 @@ main {
 
 /* DESEMPATE INLINE (vista invitado) */
 .pv-empate-aviso { font-size: 0.82rem; color: var(--catan-gold); background: rgba(212,160,23,0.1); border-left: 3px solid var(--catan-gold); padding: 0.4rem 0.75rem; border-radius: 4px; margin: 0.5rem 0 0.25rem; }
+.desempate-criterio-sel { margin: 0.75rem 0 0.5rem; }
+.desempate-criterio-label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.desempate-criterio-select { width: 100%; padding: 0.4rem 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; }
+.pv-desempate-nota { font-size: 0.8rem; color: var(--catan-gold); margin: 0.4rem 0 0; }
 .pv-desempate { padding: 0.5rem 0 0.25rem; }
 .pv-desempate-title { font-size: 0.9rem; font-weight: 700; color: var(--catan-gold); margin-bottom: 0.4rem; }
 .pv-desempate-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
