@@ -1129,7 +1129,10 @@ function calcularStats(t, rondas) {
         } else {
           stats[r.id].torneoPoints += r.pv || 0; // amistoso: ranking basado en PV total
         }
-        if (r.desempateGanado) {
+        const ganoPorDesempate = 'desempateGanado' in r
+          ? r.desempateGanado
+          : (resultados.some(x => x.id !== r.id && x.pv === r.pv && x.posicion > r.posicion));
+        if (ganoPorDesempate) {
           stats[r.id].desempateVictorias++;
           if (r.desempateAplicado) stats[r.id]._desempateCriteriosSet.add(r.desempateAplicado);
         }
