@@ -33,7 +33,10 @@ test.describe('Estilos — Layout general', () => {
 
   test('content-area ocupa el resto del layout', async ({ page }) => {
     const area = await page.locator('.content-area').boundingBox();
-    expect(area?.width).toBeGreaterThan(400);
+    const viewport = page.viewportSize();
+    // On mobile, viewport may be <400px; content-area should still cover >60% of viewport
+    const minWidth = viewport ? viewport.width * 0.6 : 400;
+    expect(area?.width).toBeGreaterThan(minWidth);
   });
 
   test('btn-primary tiene color de fondo dorado/naranja', async ({ page }) => {
