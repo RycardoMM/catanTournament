@@ -2767,16 +2767,7 @@ function renderPlayerView(shareData) {
                   id="pvg_${sfx}_${j.id}" data-id="${j.id}" />
               </div>`).join('')}
             <div class="pv-empate-aviso hidden"></div>
-            <div class="pv-criterio-bloque hidden">
-              <label class="desempate-criterio-label">¿Cómo se desempató?</label>
-              <select class="desempate-criterio-select">
-                <option value="">— Sin especificar —</option>
-                ${(shareData.desempate || []).filter(c => c !== 'puntos_victoria').map(c => {
-                  const _n = {carretera_larga:'Carretera más larga',menos_recursos:'Menos recursos',cartas_desarrollo:'Más cartas de desarrollo'};
-                  return `<option value="${escapeHtml(c)}">${escapeHtml(_n[c] || c)}</option>`;
-                }).join('')}
-              </select>
-            </div>
+            <div class="pv-criterio-bloque hidden"></div>
             <div class="resultado-form-actions">
               ${FIREBASE_ENABLED
                 ? `<button class="btn-sm btn-primary btn-pv-submit"
@@ -2961,8 +2952,43 @@ function renderPlayerView(shareData) {
     menos_recursos: 'Menos recursos', cartas_desarrollo: 'Más cartas de desarrollo'
   };
 
+  // Devuelve grupos de jugadores empatados [{pv, indices[]}]
+  const _getTiedGroups = (sorted) => {
+    const groups = [];
+    let i = 0;
+    while (i < sorted.length) {
+      let j = i + 1;
+      while (j < sorted.length && sorted[j].pv === sorted[i].pv) j++;
+      if (j - i > 1) groups.push({ pv: sorted[i].pv });
+      i = j;
+    }
+    return groups;
+  };
+
+  // HTML de selectores de criterio por grupo (uno por PV empatado)
+  const _criterioSelectorsHtml = (tiedGroups, preselected = {}) => {
+    const opts = (shareData.desempate || []).filter(c => c !== 'puntos_victoria');
+    if (!opts.length || !tiedGroups.length) return '';
+    return tiedGroups.map(g => `
+      <div class="desempate-criterio-sel">
+        <label class="desempate-criterio-label">¿Cómo se desempató a ${g.pv} PV?</label>
+        <select class="desempate-criterio-select" data-pv="${g.pv}">
+          <option value="">— Sin especificar —</option>
+          ${opts.map(c => `<option value="${escapeHtml(c)}"${preselected[String(g.pv)] === c ? ' selected' : ''}>${escapeHtml(DESEMPATE_NOMBRES[c] || c)}</option>`).join('')}
+        </select>
+      </div>`).join('');
+  };
+
   const pvRenderResultado = (card, datos, mesaLen, mesaNum) => {
-    const des = datos[0]?.desempateAplicado;
+    // Collect unique desempate notes per PV group
+    const seenPv = new Set();
+    const desNotas = [];
+    datos.forEach(r => {
+      if (r.desempateAplicado && !seenPv.has(r.pv)) {
+        seenPv.add(r.pv);
+        desNotas.push(`${r.pv} PV → ${DESEMPATE_NOMBRES[r.desempateAplicado] || r.desempateAplicado}`);
+      }
+    });
     card.innerHTML = `
       <div class="mesa-header">Mesa ${mesaNum} <span class="mesa-count">(${mesaLen})</span></div>
       <div class="resultado-display">
@@ -2974,7 +3000,7 @@ function renderPlayerView(shareData) {
             ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
           </div>`).join('')}
       </div>
-      ${des ? `<p class="pv-desempate-nota">⚖️ Desempate por: ${DESEMPATE_NOMBRES[des] || des}</p>` : ''}
+      ${desNotas.length ? `<p class="pv-desempate-nota">⚖️ Desempate: ${desNotas.join(' · ')}</p>` : ''}
       <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
     // Desvanecer el mensaje de confirmación tras 3 segundos
     const msg = card.querySelector('.pv-submit-ok');
@@ -2985,9 +3011,11 @@ function renderPlayerView(shareData) {
     }, 3000);
   };
 
-  const pvEnviar = async (card, datos, torneoId, rondaNum, mi, mesaLen, desempateAplicado) => {
+  const pvEnviar = async (card, datos, torneoId, rondaNum, mi, mesaLen, desempateMap) => {
     datos.forEach((j, i) => { j.posicion = i + 1; });
-    if (desempateAplicado) datos.forEach(j => { j.desempateAplicado = desempateAplicado; });
+    if (desempateMap && typeof desempateMap === 'object') {
+      datos.forEach(j => { const d = desempateMap[String(j.pv)]; if (d) j.desempateAplicado = d; });
+    }
     try {
       await fbEnviarResultado(torneoId, rondaNum, mi, datos);
       pvRenderResultado(card, datos, mesaLen, mi + 1);
@@ -2999,51 +3027,49 @@ function renderPlayerView(shareData) {
     }
   };
 
-  const pvMostrarDesempate = (card, orden, torneoId, rondaNum, mi, mesaLen, criterioPreseleccionado) => {
-    const criterios = shareData.desempate || [];
-    const criteriosFiltrados = criterios.filter(c => c !== 'puntos_victoria');
-    const criterioSelectHtml = criteriosFiltrados.length > 0 ? `
-      <div class="desempate-criterio-sel">
-        <label class="desempate-criterio-label">¿Cómo se desempató?</label>
-        <select class="desempate-criterio-select">
-          <option value="">— Sin especificar —</option>
-          ${criteriosFiltrados.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(DESEMPATE_NOMBRES[c] || c)}</option>`).join('')}
-        </select>
-      </div>` : '';
+  const pvMostrarDesempate = (card, orden, torneoId, rondaNum, mi, mesaLen, preselectedMap) => {
+    preselectedMap = preselectedMap || {};
 
     const render = () => {
-      const selectedCriterio = card.querySelector('.desempate-criterio-select')?.value || '';
-      const listaHtml = orden.map((j, i) => {
-        const puedeSubir  = i > 0 && orden[i - 1].pv === j.pv;
-        const puedeBajar  = i < orden.length - 1 && orden[i + 1].pv === j.pv;
-        return `
+      // Preserve current selector values across re-renders
+      const currentSels = {};
+      card.querySelectorAll('.desempate-criterio-select[data-pv]').forEach(s => { currentSels[s.dataset.pv] = s.value; });
+      const merged = Object.assign({}, preselectedMap, currentSels);
+
+      const tiedGroups = _getTiedGroups(orden);
+      const tiedPvs = new Set(tiedGroups.map(g => g.pv));
+      const insertedPvs = new Set();
+
+      let listaHtml = '';
+      orden.forEach((j, i) => {
+        const puedeSubir = i > 0 && orden[i - 1].pv === j.pv;
+        const puedeBajar = i < orden.length - 1 && orden[i + 1].pv === j.pv;
+        listaHtml += `
           <div class="desempate-row">
             <span class="res-pos">${i + 1}º</span>
             <span class="desempate-nombre">${escapeHtml(j.nombre)}</span>
             <span class="res-pv">${Number(j.pv) || 0} PV</span>
             <div class="desempate-arrows">
-              <button class="btn-arrow${puedeSubir ? '' : ' invisible'}"
-                data-action="up" data-idx="${i}">▲</button>
-              <button class="btn-arrow${puedeBajar ? '' : ' invisible'}"
-                data-action="down" data-idx="${i}">▼</button>
+              <button class="btn-arrow${puedeSubir ? '' : ' invisible'}" data-action="up" data-idx="${i}">▲</button>
+              <button class="btn-arrow${puedeBajar ? '' : ' invisible'}" data-action="down" data-idx="${i}">▼</button>
             </div>
           </div>`;
-      }).join('');
+        // Insert criterion selector after the last player of each tied group
+        const isLastInGroup = tiedPvs.has(j.pv) && !insertedPvs.has(j.pv)
+          && (i === orden.length - 1 || orden[i + 1].pv !== j.pv);
+        if (isLastInGroup) {
+          listaHtml += _criterioSelectorsHtml([{ pv: j.pv }], merged);
+          insertedPvs.add(j.pv);
+        }
+      });
 
       card.innerHTML = `
         <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesaLen})</span></div>
         <div class="pv-desempate">
           <p class="pv-desempate-title">⚖️ Hay empate — establece el orden final</p>
           <div class="pv-desempate-lista">${listaHtml}</div>
-          ${criterioSelectHtml}
           <button class="btn-sm btn-primary btn-confirm-orden">✓ Confirmar</button>
         </div>`;
-
-      const criterioInicial = selectedCriterio || criterioPreseleccionado || '';
-      if (criterioInicial) {
-        const sel = card.querySelector('.desempate-criterio-select');
-        if (sel) sel.value = criterioInicial;
-      }
 
       card.querySelectorAll('.btn-arrow:not(.invisible)').forEach(b => {
         b.addEventListener('click', () => {
@@ -3056,9 +3082,12 @@ function renderPlayerView(shareData) {
 
       card.querySelector('.btn-confirm-orden').addEventListener('click', async () => {
         const c = card.querySelector('.btn-confirm-orden');
-        const desempateAplicado = card.querySelector('.desempate-criterio-select')?.value || null;
+        const desempateMap = {};
+        card.querySelectorAll('.desempate-criterio-select[data-pv]').forEach(s => {
+          if (s.value) desempateMap[s.dataset.pv] = s.value;
+        });
         c.textContent = '⏳ Enviando…'; c.disabled = true;
-        await pvEnviar(card, orden, torneoId, rondaNum, mi, mesaLen, desempateAplicado);
+        await pvEnviar(card, orden, torneoId, rondaNum, mi, mesaLen, desempateMap);
       });
     };
     render();
@@ -3072,17 +3101,24 @@ function renderPlayerView(shareData) {
     const aviso = card.querySelector('.pv-empate-aviso');
     const criterioBloque = card.querySelector('.pv-criterio-bloque');
     if (!aviso) return;
-    const pvs = ronda.mesas[mi].map(j =>
-      parseInt(document.getElementById(`pvg_${ronda.numero}_${mi}_${j.id}`)?.value) || 0
-    );
-    const hayEmpate = pvs.some((v, i) => i > 0 && pvs.slice(0, i).includes(v));
-    if (hayEmpate) {
+    const rawDatos = ronda.mesas[mi].map(j => ({
+      pv: parseInt(document.getElementById(`pvg_${ronda.numero}_${mi}_${j.id}`)?.value) || 0
+    }));
+    const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
+    const tiedGroups = _getTiedGroups(sorted);
+    if (tiedGroups.length) {
+      // Preserve current selections before rebuilding
+      const currentSels = {};
+      criterioBloque?.querySelectorAll('.desempate-criterio-select[data-pv]').forEach(s => { currentSels[s.dataset.pv] = s.value; });
       aviso.textContent = '⚖️ Empate detectado — indica el orden y el criterio aplicado';
       aviso.classList.remove('hidden');
-      criterioBloque?.classList.remove('hidden');
+      if (criterioBloque) {
+        criterioBloque.innerHTML = _criterioSelectorsHtml(tiedGroups, currentSels);
+        criterioBloque.classList.remove('hidden');
+      }
     } else {
       aviso.classList.add('hidden');
-      criterioBloque?.classList.add('hidden');
+      if (criterioBloque) { criterioBloque.classList.add('hidden'); criterioBloque.innerHTML = ''; }
     }
   };
 
@@ -3105,8 +3141,9 @@ function renderPlayerView(shareData) {
       const sorted = [...rawDatos].sort((a, b) => b.pv - a.pv);
       const hayEmpate = sorted.some((j, i) => i > 0 && j.pv === sorted[i - 1].pv);
       if (hayEmpate) {
-        const criterioForm = card.querySelector('.desempate-criterio-select')?.value || null;
-        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen, criterioForm);
+        const desempateMap = {};
+        card.querySelectorAll('.desempate-criterio-select[data-pv]').forEach(s => { if (s.value) desempateMap[s.dataset.pv] = s.value; });
+        pvMostrarDesempate(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen, desempateMap);
       } else {
         btn.textContent = '⏳ Enviando…'; btn.disabled = true;
         pvEnviar(card, sorted, shareData.torneoId, rondaNum, mi, mesaLen);
