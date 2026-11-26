@@ -1200,10 +1200,10 @@ function renderClasificacion(hastaRondaIdx, pagina) {
           <tr>
             <td class="pos-num ${pos === 0 ? 'top1' : pos === 1 ? 'top2' : pos === 2 ? 'top3' : ''}">${pos + 1}</td>
             <td>${escapeHtml(j.nombre)}</td>
-            <td>${j.pv}</td>
-            <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
-            <td>${j.desempateVictorias > 0 ? `<span class="desempate-victoria-badge">${j.desempateVictorias}</span>` : '—'}</td>
-            ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>` : ''}
+            <td>${Number(j.pv) || 0}</td>
+            <td>${Number(j.primerPuesto) > 0 ? `<span class="primer-puesto-badge">${Number(j.primerPuesto)}</span>` : '—'}</td>
+            <td>${Number(j.desempateVictorias) > 0 ? `<span class="desempate-victoria-badge">${Number(j.desempateVictorias)}</span>` : '—'}</td>
+            ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${Number(j.torneoPoints) || 0}</strong></td>` : ''}
           </tr>`;
         }).join('')}
       </tbody>
@@ -1298,11 +1298,11 @@ function renderHistorial() {
       const res = (ronda.resultadosMesas || [])[mesaIdx];
       const filas = res
         ? res.map(r => `
-            <div class="hist-fila pos${r.posicion}">
-              <span class="hist-pos">${r.posicion}º</span>
+            <div class="hist-fila pos${Number(r.posicion) || 0}">
+              <span class="hist-pos">${Number(r.posicion) || 0}º</span>
               <span class="hist-nombre">${escapeHtml(r.nombre)}</span>
-              <span class="hist-pv">${r.pv} PV</span>
-              ${!esAmistoso ? `<span class="hist-pts">+${TORNEO_PUNTOS[r.posicion - 1] || 0}pts</span>` : ''}
+              <span class="hist-pv">${Number(r.pv) || 0} PV</span>
+              ${!esAmistoso ? `<span class="hist-pts">+${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0}pts</span>` : ''}
               ${r.desempateGanado ? '<span class="hist-desempate" title="Ganó por desempate">⚖️</span>' : ''}
             </div>`).join('')
         : '<p class="hist-sin-res">Sin resultado registrado</p>';
@@ -1513,6 +1513,7 @@ function publicarClasificacionFinal() {
       : (b.torneoPoints - a.torneoPoints || b.pv - a.pv || b.primerPuesto - a.primerPuesto))
     .map((j, i) => ({ pos: i + 1, nombre: j.nombre, pv: j.pv, torneoPoints: j.torneoPoints, primerPuesto: j.primerPuesto }));
   t.clasificacionPublicada = true;
+  t.clasificacionFinal = clasificacion;
   guardarEstado();
   if (_db) {
     _db.ref(`catan_tournaments/${t.id}`).update({
@@ -2038,11 +2039,11 @@ function renderRondas() {
           resultadoHtml = `
             <div class="resultado-display">
               ${resMesa.map(r => `
-                <div class="resultado-item pos${r.posicion}">
-                  <span class="res-pos">${r.posicion}º</span>
+                <div class="resultado-item pos${Number(r.posicion) || 0}">
+                  <span class="res-pos">${Number(r.posicion) || 0}º</span>
                   <span class="res-nombre">${escapeHtml(r.nombre)}</span>
-                  <span class="res-pv">${r.pv} PV</span>
-                  ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+                  <span class="res-pv">${Number(r.pv) || 0} PV</span>
+                  ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
                 </div>`).join('')}
               <button class="btn-edit-res btn-sm btn-outline" data-ronda="${rondaIdx}" data-mesa="${mesaIdx}">✏️ Introducir resultado</button>
             </div>`;
@@ -2210,7 +2211,9 @@ function formatDesempate(key) {
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // =============================================
@@ -2446,7 +2449,7 @@ function generarHTMLFormulario(shareData) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Catan · ${shareData.torneoNombre} · Ronda ${shareData.rondaNum}</title>
+<title>Catan · ${escapeHtml(shareData.torneoNombre)} · Ronda ${escapeHtml(String(shareData.rondaNum))}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1a0f0a;color:#f0e0c0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:1.5rem}
@@ -2476,19 +2479,20 @@ body{background:#1a0f0a;color:#f0e0c0;font-family:'Segoe UI',sans-serif;min-heig
 <body>
 <div class="wrap">
   <div class="header">
-    <div class="tnombre">🏆 ${shareData.torneoNombre}</div>
-    <div class="rbadge">Ronda ${shareData.rondaNum}</div>
+    <div class="tnombre">🏆 ${escapeHtml(shareData.torneoNombre)}</div>
+    <div class="rbadge">Ronda ${escapeHtml(String(shareData.rondaNum))}</div>
   </div>
   <p class="hint">Encuentra tu mesa, introduce los puntos de victoria (PV) de cada jugador y pulsa <strong>Generar código</strong>. Envía el código al organizador.</p>
   <div id="mesas"></div>
 </div>
 <script>
 var DATA=${dataJson};
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 DATA.mesas.forEach(function(mesa,mi){
   var card=document.createElement('div');
   card.className='mesa';card.id='m'+mi;
   var rows=mesa.map(function(j){
-    return '<div class="jrow"><span class="jnombre">'+j.nombre+'</span><input type="number" class="pvinput" data-id="'+j.id+'" min="0" max="20" placeholder="PV"></div>';
+    return '<div class="jrow"><span class="jnombre">'+esc(j.nombre)+'</span><input type="number" class="pvinput" data-id="'+esc(j.id)+'" min="0" max="20" placeholder="PV"></div>';
   }).join('');
   card.innerHTML='<div class="mesa-h">Mesa '+(mi+1)+'</div><div class="jugadores">'+rows+'</div>'
     +'<button class="btn-gen" onclick="gen('+mi+')">✓ Generar código</button>'
@@ -2610,11 +2614,11 @@ function renderPlayerView(shareData) {
         <tbody>
           ${shareData.clasificacionFinal.map(j => `
             <tr>
-              <td class="pos-num ${j.pos===1?'top1':j.pos===2?'top2':j.pos===3?'top3':''}">${j.pos}</td>
+              <td class="pos-num ${j.pos===1?'top1':j.pos===2?'top2':j.pos===3?'top3':''}">${Number(j.pos) || 0}</td>
               <td>${escapeHtml(j.nombre)}</td>
-              <td>${j.pv}</td>
-              <td>${j.primerPuesto > 0 ? `<span class="primer-puesto-badge">${j.primerPuesto}</span>` : '—'}</td>
-              ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${j.torneoPoints}</strong></td>` : ''}
+              <td>${Number(j.pv) || 0}</td>
+              <td>${Number(j.primerPuesto) > 0 ? `<span class="primer-puesto-badge">${Number(j.primerPuesto)}</span>` : '—'}</td>
+              ${!esAmistoso ? `<td class="torneo-pts-cell"><strong>${Number(j.torneoPoints) || 0}</strong></td>` : ''}
             </tr>`).join('')}
         </tbody>
       </table>
@@ -2636,11 +2640,11 @@ function renderPlayerView(shareData) {
             <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
             <div class="resultado-display">
               ${res.map(r => `
-                <div class="resultado-item pos${r.posicion}">
-                  <span class="res-pos">${r.posicion}º</span>
+                <div class="resultado-item pos${Number(r.posicion) || 0}">
+                  <span class="res-pos">${Number(r.posicion) || 0}º</span>
                   <span class="res-nombre">${escapeHtml(r.nombre)}</span>
-                  <span class="res-pv">${r.pv} PV</span>
-                  ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+                  <span class="res-pv">${Number(r.pv) || 0} PV</span>
+                  ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
                 </div>`).join('')}
             </div>
           </div>`;
@@ -2720,11 +2724,11 @@ function renderPlayerView(shareData) {
               <div class="mesa-header">Mesa ${mi + 1} <span class="mesa-count">(${mesa.length})</span></div>
               <div class="resultado-display">
                 ${res.map(r => `
-                  <div class="resultado-item pos${r.posicion}">
-                    <span class="res-pos">${r.posicion}º</span>
+                  <div class="resultado-item pos${Number(r.posicion) || 0}">
+                    <span class="res-pos">${Number(r.posicion) || 0}º</span>
                     <span class="res-nombre">${escapeHtml(r.nombre)}</span>
-                    <span class="res-pv">${r.pv} PV</span>
-                    ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+                    <span class="res-pv">${Number(r.pv) || 0} PV</span>
+                    ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
                   </div>`).join('')}
               </div>
             </div>`;
@@ -2857,11 +2861,11 @@ function renderPlayerView(shareData) {
       <div class="mesa-header">Mesa ${mesaNum} <span class="mesa-count">(${mesaLen})</span></div>
       <div class="resultado-display">
         ${datos.map(r => `
-          <div class="resultado-item pos${r.posicion}">
-            <span class="res-pos">${r.posicion}º</span>
+          <div class="resultado-item pos${Number(r.posicion) || 0}">
+            <span class="res-pos">${Number(r.posicion) || 0}º</span>
             <span class="res-nombre">${escapeHtml(r.nombre)}</span>
-            <span class="res-pv">${r.pv} PV</span>
-            ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[r.posicion - 1] || 0} pts</span>` : ''}
+            <span class="res-pv">${Number(r.pv) || 0} PV</span>
+            ${!esAmistoso ? `<span class="res-pts">${TORNEO_PUNTOS[(Number(r.posicion) || 0) - 1] || 0} pts</span>` : ''}
           </div>`).join('')}
       </div>
       <p class="pv-submit-ok">✅ Resultado enviado al organizador</p>`;
@@ -2898,7 +2902,7 @@ function renderPlayerView(shareData) {
           <div class="desempate-row">
             <span class="res-pos">${i + 1}º</span>
             <span class="desempate-nombre">${escapeHtml(j.nombre)}</span>
-            <span class="res-pv">${j.pv} PV</span>
+            <span class="res-pv">${Number(j.pv) || 0} PV</span>
             <div class="desempate-arrows">
               <button class="btn-arrow${puedeSubir ? '' : ' invisible'}"
                 data-action="up" data-idx="${i}">▲</button>
