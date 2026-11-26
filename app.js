@@ -3300,7 +3300,11 @@ function checkShareMode() {
   // URL corta con Firebase: #tournament=<id>
   if (hash.startsWith('#tournament=')) {
     const torneoId = hash.slice(12);
-    if (torneoId) cargarTorneoDesdeFirebase(torneoId);
+    if (torneoId) {
+      fbDetenerListener();
+      state.torneoActivo = null;
+      cargarTorneoDesdeFirebase(torneoId);
+    }
     return true;
   }
   // URL clásica con snapshot: #share=<base64>
