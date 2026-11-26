@@ -161,6 +161,30 @@ function _lsSet(key, value) {
   try { localStorage.setItem(key, value); } catch(e) { console.warn('[localStorage] cuota excedida, omitiendo caché:', key); }
 }
 
+// IDs de torneos creados en este navegador (ownership local)
+function _getOwnedIds() {
+  try { return new Set(JSON.parse(localStorage.getItem('catan_torneos_owned') || 'null')); } catch(e) { return null; }
+}
+function _saveOwnedIds(set) {
+  _lsSet('catan_torneos_owned', JSON.stringify([...set]));
+}
+
+// Migración de primer arranque: si catan_torneos_owned no existe aún, decidir qué hacer
+// con los torneos actuales en localStorage.
+(function _migrarOwnership() {
+  if (localStorage.getItem('catan_torneos_owned') !== null) return; // ya migrado
+  const cached = JSON.parse(localStorage.getItem('catan_torneos') || '[]');
+  if (cached.length > 20) {
+    // Más de 20 torneos sin historial de ownership → casi seguro basura importada de Firebase
+    localStorage.removeItem('catan_torneos');
+    _lsSet('catan_torneos_owned', '[]');
+  } else {
+    // Pocos torneos → asumir que son del organizador, marcarlos como propios
+    const ids = cached.map(t => String(t.id));
+    _lsSet('catan_torneos_owned', JSON.stringify(ids));
+  }
+})();
+
 const state = {
   // Lee la caché local para render instantáneo; Firebase la sobreescribirá en breve
   torneos: JSON.parse(localStorage.getItem('catan_torneos') || '[]'),
@@ -186,16 +210,18 @@ async function cargarTorneosDesdeFirebase() {
   if (!FIREBASE_ENABLED || !_db) return;
   // En modo test: saltamos para no contaminar con datos acumulados de otras ejecuciones
   if (sessionStorage.getItem('_testMode')) return;
-  // Usuario sin torneos locales: no importar desde Firebase para evitar que nuevos
-  // usuarios vean los torneos de otros al abrir la web por primera vez
+  // Solo sincronizar torneos propios de este navegador
   if (state.torneos.length === 0) return;
+  const ownedIds = _getOwnedIds();
+  if (!ownedIds || ownedIds.size === 0) return;
   try {
     const snap = await _db.ref('catan_tournaments').once('value');
     const data = snap.val() || {};
-    const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre);
+    // Solo tomar de Firebase los torneos que este navegador creó
+    const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre && ownedIds.has(String(t.id)));
     const idsFb = new Set(torneosFb.map(t => String(t.id)));
 
-    // Torneos locales que Firebase no conoce → probablemente creados offline
+    // Torneos locales propios que Firebase no conoce → creados offline
     const soloLocales = state.torneos.filter(t => !idsFb.has(String(t.id)));
 
     // Subir a Firebase los torneos que solo existen en local (sin await, no bloqueamos UI)
@@ -204,11 +230,10 @@ async function cargarTorneosDesdeFirebase() {
     });
 
     if (torneosFb.length === 0 && soloLocales.length === state.torneos.length) {
-      // Firebase vacío y todo es local → nada que actualizar en la UI
       return;
     }
 
-    // Firebase gana: usamos sus datos + conservamos los locales no sincronizados
+    // Firebase gana: usamos sus datos + conservamos los locales propios no sincronizados
     const nuevaLista = [...torneosFb, ...soloLocales];
     // Comparar ordenado por id para evitar re-renders cuando el orden cambia pero los datos son iguales
     const sortById = arr => [...arr].sort((a, b) => String(a.id).localeCompare(String(b.id)));
@@ -835,6 +860,10 @@ document.getElementById('formTorneo').addEventListener('submit', (e) => {
   };
 
   state.torneos.push(torneo);
+  // Registrar como torneo propio de este navegador
+  const _owned = _getOwnedIds() || new Set();
+  _owned.add(String(torneo.id));
+  _saveOwnedIds(_owned);
   guardarEstado();
   renderTorneos();
   cerrarModal();
@@ -1008,6 +1037,24 @@ document.getElementById('btnBorrarSeleccionados').addEventListener('click', () =
 document.getElementById('btnCancelarSeleccion').addEventListener('click', _desactivarModoSeleccion);
 
 let _confirmCallback = null;
+
+function mostrarToast(msg, tipo = 'error') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${tipo}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('toast-visible'));
+  setTimeout(() => {
+    toast.classList.remove('toast-visible');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+  }, 4000);
+}
 
 function mostrarConfirm(titulo, msg, onOk, opts = {}) {
   document.getElementById('modalConfirmTitle').textContent = titulo;
@@ -1507,7 +1554,7 @@ document.getElementById('btnVerClasificacion').addEventListener('click', () => c
 document.getElementById('btnGenerarRonda').addEventListener('click', () => {
   const t = state.torneoActivo;
   if (t.jugadores.length < t.jugadoresPorPartida) {
-    alert(`Necesitas al menos ${t.jugadoresPorPartida} jugadores para generar una ronda.`);
+    mostrarToast(`Necesitas al menos ${t.jugadoresPorPartida} jugadores para generar una ronda.`);
     return;
   }
   if (t.numRondas && t.rondas.length >= t.numRondas) return;
@@ -2282,18 +2329,18 @@ function importarCodigo(rawCode) {
     const data = JSON.parse(_b64Decode(rawCode.trim()));
     const t = state.torneoActivo;
     if (!t || t.id !== data.torneoId) {
-      alert('El código no corresponde al torneo activo.');
+      mostrarToast('El código no corresponde al torneo activo.');
       return;
     }
     const rondaIdx = t.rondas.findIndex(r => r.numero === data.rondaNum);
     if (rondaIdx === -1) {
-      alert(`No se encontró la Ronda ${data.rondaNum} en este torneo.`);
+      mostrarToast(`No se encontró la Ronda ${data.rondaNum} en este torneo.`);
       return;
     }
     _finalizarGuardadoResultado(rondaIdx, data.mesaIdx, data.resultados.map(r => ({ ...r })));
     cambiarTab('jugadores');
   } catch(e) {
-    alert('Código inválido o corrupto. Comprueba que has copiado el código completo.');
+    mostrarToast('Código inválido o corrupto. Comprueba que has copiado el código completo.');
   }
 }
 
@@ -2943,6 +2990,7 @@ function renderPlayerView(shareData) {
       const btn = card.querySelector('.btn-confirm-orden, .btn-pv-submit');
       if (btn) { btn.textContent = '✗ Error al enviar'; btn.disabled = false; }
       console.error('[Firebase] Error:', e);
+      mostrarToast('Error de conexión con Firebase. Los datos se guardarán solo localmente.', 'info');
     }
   };
 
