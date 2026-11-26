@@ -2766,6 +2766,7 @@ function renderPlayerView(shareData) {
                 <input class="res-pv-input" type="number" min="0" max="30" placeholder="PV"
                   id="pvg_${sfx}_${j.id}" data-id="${j.id}" />
               </div>`).join('')}
+            <div class="pv-empate-aviso hidden"></div>
             <div class="resultado-form-actions">
               ${FIREBASE_ENABLED
                 ? `<button class="btn-sm btn-primary btn-pv-submit"
@@ -3035,14 +3036,36 @@ function renderPlayerView(shareData) {
   };
 
   // Submit directo a Firebase
-  contenedor.querySelectorAll('.btn-pv-submit').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const rondaNum = parseInt(btn.dataset.ronda);
-      const mi = parseInt(btn.dataset.mesa);
-      const ronda = shareData.rondas.find(r => r.numero === rondaNum);
-      const card = document.getElementById(`mesa-card-${rondaNum}-${mi}`);
-      const mesaLen = ronda.mesas[mi].length;
+  const _criteriosTexto = (shareData.desempate || [])
+    .map(c => DESEMPATE_NOMBRES[c] || c).join(' → ');
 
+  const _actualizarAvisoEmpate = (card, ronda, mi) => {
+    const aviso = card.querySelector('.pv-empate-aviso');
+    if (!aviso) return;
+    const pvs = ronda.mesas[mi].map(j =>
+      parseInt(document.getElementById(`pvg_${ronda.numero}_${mi}_${j.id}`)?.value) || 0
+    );
+    const hayEmpate = pvs.some((v, i) => i > 0 && pvs.slice(0, i).includes(v));
+    if (hayEmpate) {
+      aviso.textContent = `⚖️ Empate detectado${_criteriosTexto ? ' — criterios: ' + _criteriosTexto : ''}`;
+      aviso.classList.remove('hidden');
+    } else {
+      aviso.classList.add('hidden');
+    }
+  };
+
+  contenedor.querySelectorAll('.btn-pv-submit').forEach(btn => {
+    const rondaNum = parseInt(btn.dataset.ronda);
+    const mi = parseInt(btn.dataset.mesa);
+    const ronda = shareData.rondas.find(r => r.numero === rondaNum);
+    const card = document.getElementById(`mesa-card-${rondaNum}-${mi}`);
+
+    card.querySelectorAll('.res-pv-input').forEach(input => {
+      input.addEventListener('input', () => _actualizarAvisoEmpate(card, ronda, mi));
+    });
+
+    btn.addEventListener('click', () => {
+      const mesaLen = ronda.mesas[mi].length;
       const rawDatos = ronda.mesas[mi].map(j => ({
         id: j.id, nombre: j.nombre,
         pv: parseInt(document.getElementById(`pvg_${rondaNum}_${mi}_${j.id}`)?.value) || 0
