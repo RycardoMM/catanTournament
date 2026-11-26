@@ -1515,8 +1515,13 @@ document.getElementById('btnJugadoresPrueba').addEventListener('click', () => {
   const t = state.torneoActivo;
   const necesarios = t.numJugadores - t.jugadores.length;
   if (necesarios <= 0) return;
-  const disponibles = NOMBRES_PRUEBA.filter(n => !t.jugadores.some(j => j.nombre === n));
-  const aAñadir = disponibles.slice(0, necesarios);
+  const usados = new Set(t.jugadores.map(j => j.nombre));
+  const disponibles = NOMBRES_PRUEBA.filter(n => !usados.has(n));
+  const aAñadir = [];
+  for (let i = 0; aAñadir.length < necesarios; i++) {
+    const nombre = i < disponibles.length ? disponibles[i] : `Jugador ${t.jugadores.length + aAñadir.length + 1}`;
+    aAñadir.push(nombre);
+  }
   aAñadir.forEach(nombre => t.jugadores.push({ id: Date.now() + Math.random(), nombre }));
   guardarEstado();
   renderJugadores();
