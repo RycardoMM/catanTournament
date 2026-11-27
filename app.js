@@ -210,22 +210,25 @@ async function cargarTorneosDesdeFirebase() {
   if (!FIREBASE_ENABLED || !_db) return;
   // En modo test: saltamos para no contaminar con datos acumulados de otras ejecuciones
   if (sessionStorage.getItem('_testMode')) return;
-  // Solo sincronizar torneos propios de este navegador
-  if (state.torneos.length === 0) return;
+  const esAdmin = !!localStorage.getItem('catan_admin');
+  // Solo sincronizar torneos propios de este navegador (salvo modo admin)
+  if (!esAdmin && state.torneos.length === 0) return;
   const ownedIds = _getOwnedIds();
-  if (!ownedIds || ownedIds.size === 0) return;
+  if (!esAdmin && (!ownedIds || ownedIds.size === 0)) return;
   try {
     const snap = await _db.ref('catan_tournaments').once('value');
     const data = snap.val() || {};
-    // Solo tomar de Firebase los torneos que este navegador creó
-    const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre && ownedIds.has(String(t.id)));
+    // Admin carga todo; normal solo los propios
+    const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre &&
+      (esAdmin || ownedIds.has(String(t.id))));
     const idsFb = new Set(torneosFb.map(t => String(t.id)));
 
     // Torneos locales propios que Firebase no conoce → creados offline
     const soloLocales = state.torneos.filter(t => !idsFb.has(String(t.id)));
 
     // Subir a Firebase los torneos que solo existen en local (sin await, no bloqueamos UI)
-    soloLocales.forEach(t => {
+    // En modo admin no subir para no pisar torneos ajenos
+    if (!esAdmin) soloLocales.forEach(t => {
       try { fbActualizarTorneo(t); } catch(e) {}
     });
 
