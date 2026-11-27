@@ -1752,7 +1752,7 @@ function rondaActualCompleta(t) {
 }
 
 function torneoFinalizado(t) {
-  if (!t || !t.numRondas || t.rondas.length < t.numRondas) return false;
+  if (!t || !t.numRondas || !t.rondas || t.rondas.length < t.numRondas) return false;
   return rondaActualCompleta(t);
 }
 
