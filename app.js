@@ -1065,6 +1065,11 @@ function _eliminarIds(ids) {
   _setAdminUI(esAdmin);
 
   btnAcc.addEventListener('click', async () => {
+    if (!!localStorage.getItem('catan_admin')) {
+      localStorage.removeItem('catan_admin');
+      location.reload();
+      return;
+    }
     errMsg.classList.add('hidden');
     passInput.value = ''; confirmInput.value = '';
     btnLogin.disabled = true; btnLogin.textContent = '…';
