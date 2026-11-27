@@ -439,6 +439,7 @@ main {
 
 .form-group input[type="text"],
 .form-group input[type="number"],
+.form-group input[type="password"],
 .form-group select {
   width: 100%;
   background: var(--surface2);
@@ -450,7 +451,7 @@ main {
 }
 
 .form-group input:focus,
-.form-group select:focus { border-color: var(--catan-gold); }
+.form-group select:focus { border-color: var(--catan-gold); outline: none; }
 .form-group input::placeholder { color: var(--text-muted); }
 
 .hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem; }
