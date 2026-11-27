@@ -27,10 +27,14 @@
       <h2 id="adminModalTitle">Acceso administrador</h2>
       <div id="adminModalBody">
         <div class="form-group">
-          <label for="adminPasswordInput">Contraseña</label>
-          <input type="password" id="adminPasswordInput" class="form-control" placeholder="Contraseña de administrador" autocomplete="current-password" />
+          <label for="adminPasswordInput" id="adminPassLabel">Contraseña</label>
+          <input type="password" id="adminPasswordInput" class="form-control" placeholder="Contraseña" autocomplete="current-password" />
         </div>
-        <p id="adminLoginError" class="admin-login-error hidden">Contraseña incorrecta</p>
+        <div class="form-group hidden" id="adminConfirmGroup">
+          <label for="adminPasswordConfirm">Confirmar contraseña</label>
+          <input type="password" id="adminPasswordConfirm" class="form-control" placeholder="Repite la contraseña" autocomplete="new-password" />
+        </div>
+        <p id="adminLoginError" class="admin-login-error hidden"></p>
         <button class="btn-primary" id="btnAdminLogin" style="width:100%;margin-top:.5rem">Entrar</button>
         <button class="btn-outline btn-sm" id="btnAdminLogout" style="width:100%;margin-top:.5rem;display:none">Cerrar sesión admin</button>
       </div>
@@ -375,6 +379,6 @@
 <!-- Firebase SDK (real-time sync) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="app.js?v=36"></script>
+<script src="app.js?v=37"></script>
 </body>
 </html>
