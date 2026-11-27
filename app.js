@@ -1067,6 +1067,7 @@ function _eliminarIds(ids) {
   btnAcc.addEventListener('click', async () => {
     if (!!localStorage.getItem('catan_admin')) {
       localStorage.removeItem('catan_admin');
+      localStorage.removeItem('catan_torneos');
       location.reload();
       return;
     }
