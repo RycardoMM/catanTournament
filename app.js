@@ -1043,21 +1043,17 @@ function _eliminarIds(ids) {
   const modalTitle  = document.getElementById('adminModalTitle');
   const errMsg      = document.getElementById('adminLoginError');
 
-  const HASH_KEY = 'catan_admin_hash';
+  const FB_HASH_PATH = 'catan_config/admin_hash';
 
   async function _hashPass(pass) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
   }
 
-  function _isSetup() { return !!localStorage.getItem(HASH_KEY); }
-
-  function _applyMode() {
-    const setup = !_isSetup();
-    modalTitle.textContent  = setup ? 'Configurar acceso admin' : 'Acceso administrador';
-    passLabel.textContent   = setup ? 'Nueva contraseña' : 'Contraseña';
-    btnLogin.textContent    = setup ? 'Guardar contraseña' : 'Entrar';
-    confirmGrp.classList.toggle('hidden', !setup);
+  async function _getStoredHash() {
+    if (!_db) return null;
+    const snap = await _db.ref(FB_HASH_PATH).once('value');
+    return snap.val();
   }
 
   function _setAdminUI(on) {
@@ -1068,13 +1064,26 @@ function _eliminarIds(ids) {
   }
   _setAdminUI(esAdmin);
 
-  btnAcc.addEventListener('click', () => {
-    _applyMode();
+  btnAcc.addEventListener('click', async () => {
     errMsg.classList.add('hidden');
     passInput.value = ''; confirmInput.value = '';
+    btnLogin.disabled = true; btnLogin.textContent = '…';
     overlay.classList.remove('hidden');
-    setTimeout(() => passInput.focus(), 100);
+    try {
+      const stored = await _getStoredHash();
+      const isSetup = !stored;
+      modalTitle.textContent = isSetup ? 'Configurar acceso admin' : 'Acceso administrador';
+      passLabel.textContent  = isSetup ? 'Nueva contraseña' : 'Contraseña';
+      btnLogin.textContent   = isSetup ? 'Guardar contraseña' : 'Entrar';
+      confirmGrp.classList.toggle('hidden', !isSetup);
+      btnLogin.dataset.storedHash = stored || '';
+      btnLogin.dataset.setupMode  = isSetup ? '1' : '';
+    } finally {
+      btnLogin.disabled = false;
+      setTimeout(() => passInput.focus(), 100);
+    }
   });
+
   btnCerrar.addEventListener('click', () => overlay.classList.add('hidden'));
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
 
@@ -1082,20 +1091,20 @@ function _eliminarIds(ids) {
     const pass = passInput.value;
     if (!pass) return;
     errMsg.classList.add('hidden');
+    const isSetup = !!btnLogin.dataset.setupMode;
     btnLogin.disabled = true; btnLogin.textContent = '…';
     try {
-      if (!_isSetup()) {
-        // Modo setup: guardar hash
+      if (isSetup) {
         if (pass.length < 6) { errMsg.textContent = 'Mínimo 6 caracteres'; errMsg.classList.remove('hidden'); return; }
         if (pass !== confirmInput.value) { errMsg.textContent = 'Las contraseñas no coinciden'; errMsg.classList.remove('hidden'); return; }
+        if (!_db) { errMsg.textContent = 'Firebase no disponible'; errMsg.classList.remove('hidden'); return; }
         const h = await _hashPass(pass);
-        localStorage.setItem(HASH_KEY, h);
+        await _db.ref(FB_HASH_PATH).set(h);
         localStorage.setItem('catan_admin', '1');
         overlay.classList.add('hidden');
         location.reload();
       } else {
-        // Modo login: comparar hash
-        const stored = localStorage.getItem(HASH_KEY);
+        const stored = btnLogin.dataset.storedHash;
         const entered = await _hashPass(pass);
         if (entered === stored) {
           localStorage.setItem('catan_admin', '1');
@@ -1108,7 +1117,7 @@ function _eliminarIds(ids) {
       }
     } finally {
       btnLogin.disabled = false;
-      _applyMode();
+      btnLogin.textContent = isSetup ? 'Guardar contraseña' : 'Entrar';
     }
   });
 
