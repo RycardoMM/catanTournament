@@ -220,7 +220,8 @@ async function cargarTorneosDesdeFirebase() {
     const data = snap.val() || {};
     // Admin carga todo; normal solo los propios
     const torneosFb = Object.values(data).filter(t => t && t.id && t.nombre &&
-      (esAdmin || ownedIds.has(String(t.id))));
+      (esAdmin || ownedIds.has(String(t.id))))
+      .map(t => ({ ...t, rondas: t.rondas || [], jugadores: t.jugadores || [] }));
     const idsFb = new Set(torneosFb.map(t => String(t.id)));
 
     // Torneos locales propios que Firebase no conoce → creados offline
