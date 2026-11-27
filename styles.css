@@ -53,16 +53,30 @@ header {
 }
 
 .btn-admin-login {
-  background: none;
-  border: none;
-  font-size: 1.1rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
   cursor: pointer;
-  opacity: 0.35;
-  padding: 0.2rem 0.4rem;
-  border-radius: 6px;
-  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  padding: 0;
+  flex-shrink: 0;
 }
-.btn-admin-login:hover { opacity: 0.7; }
+.btn-admin-login:hover {
+  border-color: var(--catan-gold);
+  color: var(--catan-gold);
+  background: rgba(212,160,23,0.08);
+}
+.btn-admin-login.admin-active {
+  border-color: var(--catan-gold);
+  color: var(--catan-gold);
+  background: rgba(212,160,23,0.12);
+}
 
 .admin-badge {
   font-size: 0.75rem;

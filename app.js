@@ -1058,7 +1058,7 @@ function _eliminarIds(ids) {
 
   function _setAdminUI(on) {
     badge.classList.toggle('hidden', !on);
-    btnAcc.style.opacity = on ? '0.4' : '1';
+    btnAcc.classList.toggle('admin-active', on);
     btnLogin.style.display  = on ? 'none' : '';
     btnLogout.style.display = on ? '' : 'none';
   }
