@@ -1019,6 +1019,48 @@ function _eliminarIds(ids) {
   });
 }
 
+// Importar torneo ajeno por ID o URL de Firebase
+document.getElementById('btnImportarTorneo').addEventListener('click', async () => {
+  if (!_db) { mostrarToast('Firebase no disponible', 'error'); return; }
+  const raw = prompt('Pega el ID del torneo o la URL de Firebase:');
+  if (!raw) return;
+  const match = raw.trim().match(/(\d{13,})/);
+  if (!match) { mostrarToast('ID no reconocido', 'error'); return; }
+  const torneoId = match[1];
+  if (state.torneos.some(t => String(t.id) === torneoId)) {
+    mostrarToast('El torneo ya está en tu lista', 'info'); return;
+  }
+  mostrarToast('Importando…', 'info');
+  _db.ref(`catan_tournaments/${torneoId}`).once('value', snap => {
+    const fbT = snap.val();
+    if (!fbT) { mostrarToast('Torneo no encontrado en Firebase', 'error'); return; }
+    const nuevo = {
+      id: fbT.id || Number(torneoId),
+      nombre: fbT.nombre || fbT.torneoNombre || `Torneo ${torneoId}`,
+      tipo: fbT.tipo || 'oficial',
+      numJugadores: fbT.numJugadores || 0,
+      jugadoresPorPartida: fbT.jugadoresPorPartida || 4,
+      numRondas: fbT.numRondas || 0,
+      desempate: fbT.desempate || [],
+      formato: fbT.formato || 'todos_contra_todos',
+      fechaCreacion: fbT.fechaCreacion || '',
+      jugadores: fbT.jugadores || [],
+      rondas: fbT.rondas || [],
+      resultadosMesas: fbT.resultadosMesas || undefined,
+      clasificacionPublicada: fbT.clasificacionPublicada || false,
+      clasificacionFinal: fbT.clasificacionFinal || null,
+      mapa: fbT.mapa || null
+    };
+    state.torneos.push(nuevo);
+    const owned = _lsGet('catan_torneos_owned', []);
+    if (!owned.map(String).includes(torneoId)) owned.push(Number(torneoId));
+    _lsSet('catan_torneos_owned', owned);
+    guardarEstado();
+    renderTorneos();
+    mostrarToast(`✅ "${nuevo.nombre}" importado`, 'success');
+  });
+});
+
 // Wirear botones de selección/bulk
 document.getElementById('btnModoSeleccion').addEventListener('click', () => {
   _modoSeleccion ? _desactivarModoSeleccion() : _activarModoSeleccion();
