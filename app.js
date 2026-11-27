@@ -251,6 +251,7 @@ async function cargarTorneosDesdeFirebase() {
     }
   } catch(e) {
     console.warn('Error cargando torneos desde Firebase:', e);
+    if (esAdmin) mostrarToast('Error Firebase: ' + (e.message || e), 'error');
   }
 }
 
@@ -894,7 +895,10 @@ function renderTorneos() {
   const barra      = document.getElementById('barraSeleccion');
 
   if (state.torneos.length === 0) {
-    lista.innerHTML = '<p class="empty-state">No hay torneos creados aún.</p>';
+    const esAdmin = !!localStorage.getItem('catan_admin');
+    lista.innerHTML = esAdmin
+      ? '<p class="empty-state">🔄 Cargando torneos desde Firebase…</p><button class="btn-outline btn-sm" style="margin:0.5rem auto;display:block" onclick="cargarTorneosDesdeFirebase()">Reintentar</button>'
+      : '<p class="empty-state">No hay torneos creados aún.</p>';
     paginacion.classList.add('hidden');
     headerAcc.classList.add('hidden');
     barra.classList.add('hidden');
