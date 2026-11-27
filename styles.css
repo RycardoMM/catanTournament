@@ -45,6 +45,43 @@ header {
   gap: 1rem;
 }
 
+.header-admin-zone {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-admin-login {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0.35;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  transition: opacity 0.2s;
+}
+.btn-admin-login:hover { opacity: 0.7; }
+
+.admin-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--catan-gold);
+  background: rgba(212,160,23,0.15);
+  border: 1px solid rgba(212,160,23,0.4);
+  border-radius: 10px;
+  padding: 0.15rem 0.6rem;
+  letter-spacing: 0.5px;
+}
+
+.admin-modal { max-width: 360px; }
+.admin-login-error {
+  color: #e08878;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+}
+
 h1 { font-size: 2rem; font-weight: 800; color: var(--text); letter-spacing: 1px; }
 h1 span { color: var(--catan-gold); }
 

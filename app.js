@@ -1022,6 +1022,72 @@ function _eliminarIds(ids) {
   });
 }
 
+// --- Admin login ---
+(function _initAdmin() {
+  const esAdmin = !!localStorage.getItem('catan_admin');
+  const badge   = document.getElementById('adminBadge');
+  const btnAcc  = document.getElementById('btnAdminAcceso');
+  const overlay = document.getElementById('adminModalOverlay');
+  const btnCerrar  = document.getElementById('btnCerrarAdminModal');
+  const btnLogin   = document.getElementById('btnAdminLogin');
+  const btnLogout  = document.getElementById('btnAdminLogout');
+  const passInput  = document.getElementById('adminPasswordInput');
+  const errMsg     = document.getElementById('adminLoginError');
+
+  function _setAdminUI(on) {
+    badge.classList.toggle('hidden', !on);
+    btnAcc.style.opacity = on ? '0.4' : '1';
+    btnLogin.style.display = on ? 'none' : '';
+    btnLogout.style.display = on ? '' : 'none';
+  }
+  _setAdminUI(esAdmin);
+
+  btnAcc.addEventListener('click', () => {
+    overlay.classList.remove('hidden');
+    errMsg.classList.add('hidden');
+    passInput.value = '';
+    setTimeout(() => passInput.focus(), 100);
+  });
+  btnCerrar.addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+
+  async function _hashPass(pass) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  btnLogin.addEventListener('click', async () => {
+    const pass = passInput.value;
+    if (!pass) return;
+    if (!_db) { errMsg.textContent = 'Firebase no disponible'; errMsg.classList.remove('hidden'); return; }
+    btnLogin.disabled = true; btnLogin.textContent = '…';
+    try {
+      const snap = await _db.ref('catan_config/admin_hash').once('value');
+      const storedHash = snap.val();
+      if (!storedHash) { errMsg.textContent = 'Admin no configurado'; errMsg.classList.remove('hidden'); return; }
+      const entered = await _hashPass(pass);
+      if (entered === storedHash) {
+        localStorage.setItem('catan_admin', '1');
+        overlay.classList.add('hidden');
+        location.reload();
+      } else {
+        errMsg.textContent = 'Contraseña incorrecta';
+        errMsg.classList.remove('hidden');
+      }
+    } finally {
+      btnLogin.disabled = false; btnLogin.textContent = 'Entrar';
+    }
+  });
+
+  passInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnLogin.click(); });
+
+  btnLogout.addEventListener('click', () => {
+    localStorage.removeItem('catan_admin');
+    overlay.classList.add('hidden');
+    location.reload();
+  });
+})();
+
 // Importar torneo ajeno por ID o URL de Firebase
 document.getElementById('btnImportarTorneo').addEventListener('click', async () => {
   if (!_db) { mostrarToast('Firebase no disponible', 'error'); return; }

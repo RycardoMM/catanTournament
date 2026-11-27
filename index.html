@@ -13,8 +13,29 @@
   <header>
     <div class="header-content">
       <h1>Catan <span>Torneo</span></h1>
+      <div class="header-admin-zone">
+        <span id="adminBadge" class="admin-badge hidden">🔐 Admin</span>
+        <button id="btnAdminAcceso" class="btn-admin-login" title="Acceso administrador">🔐</button>
+      </div>
     </div>
   </header>
+
+  <!-- Modal admin login -->
+  <div class="modal-overlay hidden" id="adminModalOverlay">
+    <div class="modal admin-modal">
+      <button class="modal-close" id="btnCerrarAdminModal">&times;</button>
+      <h2 id="adminModalTitle">Acceso administrador</h2>
+      <div id="adminModalBody">
+        <div class="form-group">
+          <label for="adminPasswordInput">Contraseña</label>
+          <input type="password" id="adminPasswordInput" class="form-control" placeholder="Contraseña de administrador" autocomplete="current-password" />
+        </div>
+        <p id="adminLoginError" class="admin-login-error hidden">Contraseña incorrecta</p>
+        <button class="btn-primary" id="btnAdminLogin" style="width:100%;margin-top:.5rem">Entrar</button>
+        <button class="btn-outline btn-sm" id="btnAdminLogout" style="width:100%;margin-top:.5rem;display:none">Cerrar sesión admin</button>
+      </div>
+    </div>
+  </div>
 
   <div class="app-layout">
 
@@ -354,6 +375,6 @@
 <!-- Firebase SDK (real-time sync) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="app.js?v=35"></script>
+<script src="app.js?v=36"></script>
 </body>
 </html>
