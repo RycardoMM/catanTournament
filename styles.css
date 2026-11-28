@@ -167,6 +167,20 @@ main {
 .hero h2 { font-size: 1.8rem; color: var(--catan-gold); margin-bottom: 0.75rem; }
 .hero p { color: var(--text-muted); font-size: 1.05rem; margin-bottom: 2rem; }
 
+/* HISTORIAL */
+.torneos-historial {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--border);
+}
+.torneos-historial .torneos-activos-header {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+.torneos-historial .lista-torneos {
+  opacity: 0.85;
+}
+
 /* TORNEOS ACTIVOS */
 .torneos-activos-header {
   display: flex;

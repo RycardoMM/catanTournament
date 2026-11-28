@@ -889,88 +889,120 @@ let _modoSeleccion = false;
 let _torneosSeleccionados = new Set();
 
 // --- Render torneos (inicio) ---
+let _paginaHistorial = 0;
+
+function _torneoEnHistorial(t) {
+  return t.clasificacionPublicada === true;
+}
+
+function _renderTorneoCard(t, modoSel) {
+  const seleccionado = _torneosSeleccionados.has(String(t.id));
+  return `
+  <div class="torneo-card${modoSel ? ' seleccionable' : ''}${seleccionado ? ' seleccionado' : ''}" data-id="${t.id}">
+    ${modoSel
+      ? `<input type="checkbox" class="card-checkbox" data-id="${t.id}" ${seleccionado ? 'checked' : ''}>`
+      : `<button class="btn-delete-torneo" data-id="${t.id}" title="Eliminar torneo">🗑</button>`
+    }
+    <h4>${escapeHtml(t.nombre)}</h4>
+    <p class="meta">👥 ${t.numJugadores} jugadores · ${t.jugadoresPorPartida} por partida</p>
+    <p class="meta">🎲 ${formatFormato(t.formato)} · ${t.tipo === 'amistoso' ? '🤝 Amistoso' : '🏅 Oficial'}</p>
+    <p class="meta">📅 ${t.fechaCreacion}</p>
+    <p class="meta">🏆 Desempate: ${(t.metosDesempate || t.desempate || []).map(formatDesempate).join(' › ')}</p>
+    <div class="card-footer">
+      <span class="badge ${torneoFinalizado(t) ? 'finalizado' : ''}">${torneoFinalizado(t) ? 'Finalizado' : t.estado}</span>
+      ${!modoSel ? `<button class="btn-sm btn-outline btn-gestionar" data-id="${t.id}">Ver →</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function _renderPaginacion(contenedor, pagina, total, onPrev, onNext) {
+  if (total > 1) {
+    contenedor.classList.remove('hidden');
+    const prevId = 'btnPag_' + contenedor.id + '_ant';
+    const sigId  = 'btnPag_' + contenedor.id + '_sig';
+    contenedor.innerHTML = `
+      <button id="${prevId}" ${pagina === 0 ? 'disabled' : ''}>← Anterior</button>
+      <span class="pagina-info">Página ${pagina + 1} de ${total}</span>
+      <button id="${sigId}" ${pagina >= total - 1 ? 'disabled' : ''}>Siguiente →</button>`;
+    document.getElementById(prevId).addEventListener('click', onPrev);
+    document.getElementById(sigId).addEventListener('click', onNext);
+  } else {
+    contenedor.classList.add('hidden');
+  }
+}
+
 function renderTorneos() {
   const lista      = document.getElementById('listaTorneos');
   const paginacion = document.getElementById('paginacionTorneos');
   const headerAcc  = document.getElementById('torneosHeaderAcciones');
   const barra      = document.getElementById('barraSeleccion');
+  const secHist    = document.getElementById('seccionHistorial');
+  const listaHist  = document.getElementById('listaHistorial');
+  const pagHist    = document.getElementById('paginacionHistorial');
+
+  const esAdmin = !!localStorage.getItem('catan_admin');
 
   if (state.torneos.length === 0) {
-    const esAdmin = !!localStorage.getItem('catan_admin');
     lista.innerHTML = esAdmin
       ? '<p class="empty-state">🔄 Cargando torneos desde Firebase…</p><button class="btn-outline btn-sm" style="margin:0.5rem auto;display:block" onclick="cargarTorneosDesdeFirebase()">Reintentar</button>'
       : '<p class="empty-state">No hay torneos creados aún.</p>';
     paginacion.classList.add('hidden');
     headerAcc.classList.add('hidden');
     barra.classList.add('hidden');
+    secHist.classList.add('hidden');
     _modoSeleccion = false;
     _torneosSeleccionados.clear();
     return;
   }
 
-  headerAcc.classList.remove('hidden');
+  // Separar activos e historial
+  const activos    = state.torneos.filter(t => !_torneoEnHistorial(t));
+  const historial  = state.torneos.filter(t => _torneoEnHistorial(t));
 
-  const totalPaginas = Math.ceil(state.torneos.length / TORNEOS_POR_PAGINA);
-  if (_paginaTorneos >= totalPaginas) _paginaTorneos = Math.max(0, totalPaginas - 1);
-
-  const inicio  = _paginaTorneos * TORNEOS_POR_PAGINA;
-  const pagina  = state.torneos.slice(inicio, inicio + TORNEOS_POR_PAGINA);
-
-  lista.innerHTML = pagina.map(t => {
-    const seleccionado = _torneosSeleccionados.has(String(t.id));
-    return `
-    <div class="torneo-card${_modoSeleccion ? ' seleccionable' : ''}${seleccionado ? ' seleccionado' : ''}" data-id="${t.id}">
-      ${_modoSeleccion
-        ? `<input type="checkbox" class="card-checkbox" data-id="${t.id}" ${seleccionado ? 'checked' : ''}>`
-        : `<button class="btn-delete-torneo" data-id="${t.id}" title="Eliminar torneo">🗑</button>`
-      }
-      <h4>${escapeHtml(t.nombre)}</h4>
-      <p class="meta">👥 ${t.numJugadores} jugadores · ${t.jugadoresPorPartida} por partida</p>
-      <p class="meta">🎲 ${formatFormato(t.formato)} · ${t.tipo === 'amistoso' ? '🤝 Amistoso' : '🏅 Oficial'}</p>
-      <p class="meta">📅 ${t.fechaCreacion}</p>
-      <p class="meta">🏆 Desempate: ${(t.metosDesempate || t.desempate || []).map(formatDesempate).join(' › ')}</p>
-      <div class="card-footer">
-        <span class="badge ${torneoFinalizado(t) ? 'finalizado' : ''}">${torneoFinalizado(t) ? 'Finalizado' : t.estado}</span>
-        ${!_modoSeleccion ? `<button class="btn-sm btn-outline btn-gestionar" data-id="${t.id}">Gestionar →</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-
-  // Eventos según modo
-  if (_modoSeleccion) {
-    lista.querySelectorAll('.torneo-card').forEach(card => {
-      card.addEventListener('click', (e) => {
-        if (e.target.classList.contains('card-checkbox')) return;
-        _toggleSeleccion(card.dataset.id);
-      });
-    });
-    lista.querySelectorAll('.card-checkbox').forEach(chk => {
-      chk.addEventListener('change', () => _toggleSeleccion(chk.dataset.id));
-    });
-    _actualizarBarraSeleccion();
+  // --- Sección activos ---
+  if (activos.length === 0) {
+    lista.innerHTML = '<p class="empty-state">No hay torneos activos.</p>';
+    paginacion.classList.add('hidden');
+    headerAcc.classList.add('hidden');
+    barra.classList.add('hidden');
+    _modoSeleccion = false;
+    _torneosSeleccionados.clear();
   } else {
-    lista.querySelectorAll('.btn-gestionar').forEach(btn => {
-      btn.addEventListener('click', () => abrirDetalle(btn.dataset.id));
-    });
-    lista.querySelectorAll('.btn-delete-torneo').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        eliminarTorneo(btn.dataset.id);
+    headerAcc.classList.remove('hidden');
+    const totalPags = Math.ceil(activos.length / TORNEOS_POR_PAGINA);
+    if (_paginaTorneos >= totalPags) _paginaTorneos = Math.max(0, totalPags - 1);
+    const pagina = activos.slice(_paginaTorneos * TORNEOS_POR_PAGINA, (_paginaTorneos + 1) * TORNEOS_POR_PAGINA);
+    lista.innerHTML = pagina.map(t => _renderTorneoCard(t, _modoSeleccion)).join('');
+
+    if (_modoSeleccion) {
+      lista.querySelectorAll('.torneo-card').forEach(card => {
+        card.addEventListener('click', (e) => { if (!e.target.classList.contains('card-checkbox')) _toggleSeleccion(card.dataset.id); });
       });
-    });
+      lista.querySelectorAll('.card-checkbox').forEach(chk => chk.addEventListener('change', () => _toggleSeleccion(chk.dataset.id)));
+      _actualizarBarraSeleccion();
+    } else {
+      lista.querySelectorAll('.btn-gestionar').forEach(btn => btn.addEventListener('click', () => abrirDetalle(btn.dataset.id)));
+      lista.querySelectorAll('.btn-delete-torneo').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); eliminarTorneo(btn.dataset.id); }));
+    }
+    _renderPaginacion(paginacion, _paginaTorneos, totalPags,
+      () => { _paginaTorneos--; renderTorneos(); },
+      () => { _paginaTorneos++; renderTorneos(); });
   }
 
-  // Paginación
-  if (totalPaginas > 1) {
-    paginacion.classList.remove('hidden');
-    paginacion.innerHTML = `
-      <button id="btnPagAnt" ${_paginaTorneos === 0 ? 'disabled' : ''}>← Anterior</button>
-      <span class="pagina-info">Página ${_paginaTorneos + 1} de ${totalPaginas}</span>
-      <button id="btnPagSig" ${_paginaTorneos >= totalPaginas - 1 ? 'disabled' : ''}>Siguiente →</button>`;
-    document.getElementById('btnPagAnt').addEventListener('click', () => { _paginaTorneos--; renderTorneos(); });
-    document.getElementById('btnPagSig').addEventListener('click', () => { _paginaTorneos++; renderTorneos(); });
+  // --- Sección historial ---
+  if (historial.length === 0) {
+    secHist.classList.add('hidden');
   } else {
-    paginacion.classList.add('hidden');
+    secHist.classList.remove('hidden');
+    const totalPagsH = Math.ceil(historial.length / TORNEOS_POR_PAGINA);
+    if (_paginaHistorial >= totalPagsH) _paginaHistorial = Math.max(0, totalPagsH - 1);
+    const paginaH = historial.slice(_paginaHistorial * TORNEOS_POR_PAGINA, (_paginaHistorial + 1) * TORNEOS_POR_PAGINA);
+    listaHist.innerHTML = paginaH.map(t => _renderTorneoCard(t, false)).join('');
+    listaHist.querySelectorAll('.btn-gestionar').forEach(btn => btn.addEventListener('click', () => abrirDetalle(btn.dataset.id)));
+    listaHist.querySelectorAll('.btn-delete-torneo').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); eliminarTorneo(btn.dataset.id); }));
+    _renderPaginacion(pagHist, _paginaHistorial, totalPagsH,
+      () => { _paginaHistorial--; renderTorneos(); },
+      () => { _paginaHistorial++; renderTorneos(); });
   }
 }
 
